@@ -9,6 +9,8 @@ import SwiftUI
 
 @main
 struct pathwiseApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
         WindowGroup {
             ContentView()

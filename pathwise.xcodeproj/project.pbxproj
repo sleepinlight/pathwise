@@ -10,9 +10,22 @@
 		7BD946912F2387E400B44241 /* pathwise.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pathwise.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7BD946D72F239CA000B44241 /* Exceptions for "pathwise" folder in "pathwise" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7BD946902F2387E400B44241 /* pathwise */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7BD946932F2387E400B44241 /* pathwise */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7BD946D72F239CA000B44241 /* Exceptions for "pathwise" folder in "pathwise" target */,
+			);
 			path = pathwise;
 			sourceTree = "<group>";
 		};
@@ -249,10 +262,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = pathwise/pathwise.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = pathwise/Info.plist;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Pathwise analyzes your schedule to find the perfect time for a walk.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Pathwise needs access to your calendar to find free time blocks for your walks.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pathwise tracks your steps and activity to celebrate your walking progress.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pathwise may update your health data";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pathwise needs your location to provide accurate weather forecasts for your walking windows.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -280,10 +300,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = pathwise/pathwise.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = pathwise/Info.plist;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Pathwise analyzes your schedule to find the perfect time for a walk.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Pathwise needs access to your calendar to find free time blocks for your walks.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pathwise tracks your steps and activity to celebrate your walking progress.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pathwise may update your health data";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pathwise needs your location to provide accurate weather forecasts for your walking windows.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

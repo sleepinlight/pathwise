@@ -8,17 +8,24 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var onboardingState = OnboardingState()
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if onboardingState.hasCompletedOnboarding {
+                DashboardView()
+            } else {
+                OnboardingView(isOnboardingComplete: $onboardingState.hasCompletedOnboarding)
+            }
         }
-        .padding()
+        .animation(.easeInOut, value: onboardingState.hasCompletedOnboarding)
     }
 }
 
-#Preview {
+#Preview("Onboarding") {
     ContentView()
+}
+
+#Preview("Dashboard") {
+    DashboardView()
 }
