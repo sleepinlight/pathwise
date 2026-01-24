@@ -38,7 +38,7 @@ struct ActivityStatsCard: View {
                     icon: "flame.fill",
                     value: "\(steps)",
                     label: "Steps",
-                    color: .orange
+                    color: .secondaryAccent
                 )
 
                 Divider()
@@ -48,7 +48,7 @@ struct ActivityStatsCard: View {
                     icon: "location.fill",
                     value: String(format: "%.1f", distance),
                     label: "Miles",
-                    color: .blue
+                    color: .accent
                 )
 
                 Divider()
@@ -58,7 +58,7 @@ struct ActivityStatsCard: View {
                     icon: "timer",
                     value: "\(minutes)",
                     label: "Minutes",
-                    color: .green
+                    color: .secondaryAccent
                 )
             }
 

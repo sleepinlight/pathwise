@@ -38,8 +38,11 @@ struct DashboardView: View {
 
                     // Weekly Chart
                     if !viewModel.weeklyActivities.isEmpty {
-                        WeeklyActivityChart(weeklyActivities: viewModel.weeklyActivities)
-                            .padding(.horizontal, Spacing.lg)
+                        WeeklyActivityChart(
+                            weeklyActivities: viewModel.weeklyActivities,
+                            stepGoal: viewModel.preferences.dailyStepGoal
+                        )
+                        .padding(.horizontal, Spacing.lg)
                     }
 
                     Spacer(minLength: Spacing.xl)
@@ -53,6 +56,14 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .onChange(of: showingSettings) { _, isShowing in
+                // When settings sheet is dismissed, refresh data with new preferences
+                if !isShowing {
+                    Task {
+                        await viewModel.refresh()
+                    }
+                }
             }
         }
         .task {

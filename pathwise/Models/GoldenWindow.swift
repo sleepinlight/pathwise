@@ -60,6 +60,12 @@ struct GoldenWindow: Identifiable, Codable {
     }
 }
 
+enum AppTheme: String, Codable, CaseIterable {
+    case light = "Light"
+    case dark = "Dark"
+    case system = "System"
+}
+
 struct UserPreferences: Codable {
     var preferredWalkDuration: Int = 20 // minutes
     var idealTemperatureMin: Double = 60 // Fahrenheit
@@ -68,6 +74,7 @@ struct UserPreferences: Codable {
     var extremeTempMax: Double = 90 // Fahrenheit
     var dailyStepGoal: Int = 8000
     var morningNotificationTime: Date = Calendar.current.date(from: DateComponents(hour: 8, minute: 30))!
+    var theme: AppTheme = .system
 
     func isTemperatureIdeal(_ temp: Double) -> Bool {
         temp >= idealTemperatureMin && temp <= idealTemperatureMax

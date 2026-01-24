@@ -164,8 +164,10 @@ class HealthService: ObservableObject {
     }
 
     // MARK: - Mock Data (for development/testing)
-    func useMockHealthData() {
-        todaySteps = 4532
+    func useMockHealthData(stepGoal: Int = 8000) {
+        // Today's steps - fixed value that doesn't change when goal changes
+        // This simulates real step tracking where actual steps are measured, not calculated
+        todaySteps = 4480 // Fixed at ~56% of default 8000 goal
         todayDistance = 2.1
         todayMinutesMoved = 35
         hasHealthAccess = true
@@ -173,12 +175,32 @@ class HealthService: ObservableObject {
         let calendar = Calendar.current
         weeklyActivities = (0..<7).map { dayOffset in
             let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date())!
+
+            // Use date as seed for consistent "random" values per day
+            let daysSinceReferenceDate = Int(date.timeIntervalSinceReferenceDate / 86400)
+            let pseudoRandom = Double((daysSinceReferenceDate * 9301 + 49297) % 233280) / 233280.0
+
+            // Generate fixed step count per day (not relative to goal)
+            // Use a base of 8000 steps with variance from 30% to 130%
+            let baseGoal = 8000.0
+            let progress = 0.3 + (pseudoRandom * 1.0) // Scales from 0.3 to 1.3
+            let steps = Int(baseGoal * progress) // Fixed steps for this day
+
+            // Claimed window if goal was met
+            let claimedWindow = steps >= stepGoal
+
+            // Distance based on steps (roughly)
+            let distance = Double(steps) / 2000.0 // ~2000 steps per mile
+
+            // Minutes based on steps
+            let minutes = steps / 150 // ~150 steps per minute of walking
+
             return DailyActivity(
                 date: calendar.startOfDay(for: date),
-                steps: Int.random(in: 3000...9000),
-                distance: Double.random(in: 1.5...4.5),
-                minutesMoved: Int.random(in: 20...60),
-                claimedWindow: Bool.random()
+                steps: steps,
+                distance: distance,
+                minutesMoved: minutes,
+                claimedWindow: claimedWindow
             )
         }.sorted { $0.date < $1.date }
     }

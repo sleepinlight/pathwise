@@ -36,6 +36,8 @@ struct GoldenWindowCard: View {
                         Text(window.timeString)
                             .font(.pathwiseLargeNumber)
                             .foregroundColor(.accent)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .minimumScaleFactor(0.8)
 
                         Text("\(window.durationInMinutes) minute walk")
                             .font(.pathwiseBody)
@@ -48,7 +50,7 @@ struct GoldenWindowCard: View {
                     VStack(spacing: Spacing.xs) {
                         Image(systemName: window.weather.weatherCondition.sfSymbol)
                             .font(.system(size: 44, weight: .medium))
-                            .foregroundColor(.accent)
+                            .foregroundColor(.secondaryAccent)
                             .symbolRenderingMode(.hierarchical)
 
                         Text("\(Int(window.weather.temperature))°F")
@@ -120,10 +122,10 @@ struct StatusBadge: View {
         Text(status)
             .font(.pathwiseCaption)
             .fontWeight(.semibold)
-            .foregroundColor(.accent)
+            .foregroundColor(.secondaryAccent)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .background(Color.accent.opacity(0.15))
+            .background(Color.secondaryAccent.opacity(0.15))
             .cornerRadius(CornerRadius.sm)
     }
 }

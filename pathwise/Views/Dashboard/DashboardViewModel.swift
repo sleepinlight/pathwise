@@ -43,6 +43,9 @@ class DashboardViewModel: ObservableObject {
     func initialize() async {
         isLoading = true
 
+        // Load preferences from UserDefaults
+        loadPreferences()
+
         // For Phase 1, we'll use mock data for easier development
         // In production, you'd request permissions and fetch real data
         await loadMockData()
@@ -54,8 +57,18 @@ class DashboardViewModel: ObservableObject {
     }
 
     func refresh() async {
+        // Reload preferences in case they changed in settings
+        loadPreferences()
+
         await loadMockData()
         calculateGoldenWindow()
+    }
+
+    private func loadPreferences() {
+        if let data = UserDefaults.standard.data(forKey: "userPreferences"),
+           let savedPreferences = try? JSONDecoder().decode(UserPreferences.self, from: data) {
+            self.preferences = savedPreferences
+        }
     }
 
     // MARK: - Real Data Loading (commented out for Phase 1)
@@ -88,7 +101,7 @@ class DashboardViewModel: ObservableObject {
         // Use mock data for development
         weatherService.fetchMockWeather()
         calendarService.useMockCalendar()
-        healthService.useMockHealthData()
+        healthService.useMockHealthData(stepGoal: preferences.dailyStepGoal)
         locationService.useMockLocation()
 
         // Small delay to simulate network call
@@ -128,6 +141,11 @@ class DashboardViewModel: ObservableObject {
     // MARK: - Settings Update
     func updatePreferences(_ newPreferences: UserPreferences) {
         self.preferences = newPreferences
-        calculateGoldenWindow()
+
+        // Reload mock data with new step goal
+        Task {
+            await loadMockData()
+            calculateGoldenWindow()
+        }
     }
 }
