@@ -31,30 +31,33 @@ struct GoldenWindowCard: View {
                 Divider()
 
                 // Time Display
-                HStack(alignment: .center, spacing: Spacing.lg) {
+                HStack(alignment: .center, spacing: Spacing.md) {
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text(window.timeString)
                             .font(.pathwiseLargeNumber)
                             .foregroundColor(.accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
 
                         Text("\(window.durationInMinutes) minute walk")
                             .font(.pathwiseBody)
                             .foregroundColor(.primaryText.opacity(0.7))
+                            .lineLimit(1)
                     }
-
-                    Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Weather Icon
                     VStack(spacing: Spacing.xs) {
                         Image(systemName: window.weather.weatherCondition.sfSymbol)
                             .font(.system(size: 44, weight: .medium))
-                            .foregroundColor(.accent)
+                            .foregroundColor(.secondaryAccent)
                             .symbolRenderingMode(.hierarchical)
 
                         Text("\(Int(window.weather.temperature))°F")
                             .font(.pathwiseHeadline)
                             .foregroundColor(.primaryText)
                     }
+                    .frame(width: 80)
                 }
 
                 // Reason Summary
@@ -120,10 +123,10 @@ struct StatusBadge: View {
         Text(status)
             .font(.pathwiseCaption)
             .fontWeight(.semibold)
-            .foregroundColor(.accent)
+            .foregroundColor(.secondaryAccent)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .background(Color.accent.opacity(0.15))
+            .background(Color.secondaryAccent.opacity(0.15))
             .cornerRadius(CornerRadius.sm)
     }
 }

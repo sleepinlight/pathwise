@@ -11,6 +11,7 @@ import Combine
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel = SettingsViewModel()
+    @StateObject private var themeManager = ThemeManager()
     @State private var showingResetAlert = false
 
     var body: some View {
@@ -86,6 +87,20 @@ struct SettingsView: View {
                     Text("Your preferred temperature range for walking")
                 }
 
+                // Theme Preferences
+                Section {
+                    Picker("Appearance", selection: $viewModel.theme) {
+                        ForEach(AppTheme.allCases, id: \.self) { theme in
+                            Text(theme.rawValue).tag(theme)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Choose between light, dark, or system theme")
+                }
+
                 // Notification Preferences
                 Section {
                     Toggle("Daily Nudge", isOn: $viewModel.notificationsEnabled)
@@ -128,13 +143,20 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        viewModel.savePreferences()
                         dismiss()
                     }
                     .font(.pathwiseSubheadline)
                     .foregroundColor(.accent)
                 }
             }
+            .onChange(of: viewModel.walkDuration) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.stepGoal) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.idealTempMin) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.idealTempMax) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.theme) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.notificationsEnabled) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.notificationTime) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.windowReminderEnabled) { _, _ in viewModel.savePreferences() }
             .alert("Reset Onboarding", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
@@ -144,6 +166,10 @@ struct SettingsView: View {
             } message: {
                 Text("This will show the onboarding screens again when you relaunch the app.")
             }
+        }
+        .preferredColorScheme(themeManager.colorScheme)
+        .onReceive(NotificationCenter.default.publisher(for: .themeDidChange)) { _ in
+            themeManager.updateTheme()
         }
     }
 }
@@ -199,6 +225,7 @@ class SettingsViewModel: ObservableObject {
     @Published var stepGoal: Int
     @Published var idealTempMin: Double
     @Published var idealTempMax: Double
+    @Published var theme: AppTheme
     @Published var notificationsEnabled: Bool
     @Published var notificationTime: Date
     @Published var windowReminderEnabled: Bool
@@ -213,6 +240,7 @@ class SettingsViewModel: ObservableObject {
         self.stepGoal = preferences.dailyStepGoal
         self.idealTempMin = preferences.idealTemperatureMin
         self.idealTempMax = preferences.idealTemperatureMax
+        self.theme = preferences.theme
         self.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
         self.notificationTime = preferences.morningNotificationTime
         self.windowReminderEnabled = UserDefaults.standard.bool(forKey: "windowReminderEnabled")
@@ -223,6 +251,7 @@ class SettingsViewModel: ObservableObject {
         preferences.dailyStepGoal = stepGoal
         preferences.idealTemperatureMin = idealTempMin
         preferences.idealTemperatureMax = idealTempMax
+        preferences.theme = theme
         preferences.morningNotificationTime = notificationTime
 
         // Save to UserDefaults
@@ -232,6 +261,9 @@ class SettingsViewModel: ObservableObject {
 
         UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
         UserDefaults.standard.set(windowReminderEnabled, forKey: "windowReminderEnabled")
+
+        // Notify that theme changed
+        NotificationCenter.default.post(name: .themeDidChange, object: nil)
     }
 
     func resetOnboarding() {
