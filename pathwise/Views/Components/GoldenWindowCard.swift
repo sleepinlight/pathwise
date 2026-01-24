@@ -31,20 +31,20 @@ struct GoldenWindowCard: View {
                 Divider()
 
                 // Time Display
-                HStack(alignment: .center, spacing: Spacing.lg) {
+                HStack(alignment: .center, spacing: Spacing.md) {
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         Text(window.timeString)
                             .font(.pathwiseLargeNumber)
                             .foregroundColor(.accent)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .minimumScaleFactor(0.8)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
 
                         Text("\(window.durationInMinutes) minute walk")
                             .font(.pathwiseBody)
                             .foregroundColor(.primaryText.opacity(0.7))
+                            .lineLimit(1)
                     }
-
-                    Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Weather Icon
                     VStack(spacing: Spacing.xs) {
@@ -57,6 +57,7 @@ struct GoldenWindowCard: View {
                             .font(.pathwiseHeadline)
                             .foregroundColor(.primaryText)
                     }
+                    .frame(width: 80)
                 }
 
                 // Reason Summary

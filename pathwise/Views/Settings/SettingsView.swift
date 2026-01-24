@@ -11,6 +11,7 @@ import Combine
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel = SettingsViewModel()
+    @StateObject private var themeManager = ThemeManager()
     @State private var showingResetAlert = false
 
     var body: some View {
@@ -142,13 +143,20 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        viewModel.savePreferences()
                         dismiss()
                     }
                     .font(.pathwiseSubheadline)
                     .foregroundColor(.accent)
                 }
             }
+            .onChange(of: viewModel.walkDuration) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.stepGoal) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.idealTempMin) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.idealTempMax) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.theme) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.notificationsEnabled) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.notificationTime) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.windowReminderEnabled) { _, _ in viewModel.savePreferences() }
             .alert("Reset Onboarding", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
@@ -158,6 +166,10 @@ struct SettingsView: View {
             } message: {
                 Text("This will show the onboarding screens again when you relaunch the app.")
             }
+        }
+        .preferredColorScheme(themeManager.colorScheme)
+        .onReceive(NotificationCenter.default.publisher(for: .themeDidChange)) { _ in
+            themeManager.updateTheme()
         }
     }
 }
