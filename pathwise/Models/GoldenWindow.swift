@@ -66,6 +66,11 @@ enum AppTheme: String, Codable, CaseIterable {
     case system = "System"
 }
 
+enum DarkModeStyle: String, Codable, CaseIterable {
+    case `default` = "Default"
+    case black = "Black"
+}
+
 struct UserPreferences: Codable {
     var preferredWalkDuration: Int = 20 // minutes
     var idealTemperatureMin: Double = 60 // Fahrenheit
@@ -75,6 +80,9 @@ struct UserPreferences: Codable {
     var dailyStepGoal: Int = 8000
     var morningNotificationTime: Date = Calendar.current.date(from: DateComponents(hour: 8, minute: 30))!
     var theme: AppTheme = .system
+    var darkModeStyle: DarkModeStyle = .default
+    var preferredWalkStartTime: Date = Calendar.current.date(from: DateComponents(hour: 6, minute: 0))!  // 6:00 AM default
+    var preferredWalkEndTime: Date = Calendar.current.date(from: DateComponents(hour: 20, minute: 0))!   // 8:00 PM default
 
     func isTemperatureIdeal(_ temp: Double) -> Bool {
         temp >= idealTemperatureMin && temp <= idealTemperatureMax

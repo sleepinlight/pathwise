@@ -256,7 +256,7 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: window,
                 splitWalkSuggestion: nil,
-                noWindowReason: .extremeWeather
+                noWindowReason: .poorWeather
             )
 
         case .splitWalk:
@@ -319,7 +319,7 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
-                noWindowReason: .extremeWeather
+                noWindowReason: .unsafeWeather
             )
 
         case .scheduleTooTight:

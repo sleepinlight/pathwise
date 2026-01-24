@@ -47,9 +47,27 @@ struct WindowResult {
 
 enum NoWindowReason: String {
     case noFreeTime = "Your calendar is fully booked"
-    case extremeWeather = "Weather conditions are unsafe"
+    case unsafeWeather = "Weather conditions are unsafe"
+    case poorWeather = "Weather conditions aren't ideal"
     case scheduleTooTight = "No time slots long enough for a walk"
     case noWeatherData = "Weather data unavailable"
+
+    var severity: WeatherSeverity {
+        switch self {
+        case .unsafeWeather:
+            return .unsafe
+        case .poorWeather:
+            return .poor
+        case .noFreeTime, .scheduleTooTight, .noWeatherData:
+            return .none
+        }
+    }
+}
+
+enum WeatherSeverity {
+    case none      // Not weather-related
+    case poor      // Not ideal but walkable (light rain, fog, mild conditions)
+    case unsafe    // Dangerous (thunderstorms, heavy rain, extreme temps)
 }
 
 class WindowFinderService {
@@ -92,6 +110,7 @@ class WindowFinderService {
 
         // Step 2: Score all windows and categorize them
         var allScoredWindows: [ScoredWindow] = []
+        var poorWeatherWindows: [ScoredWindow] = []
         var extremeWeatherWindows: [ScoredWindow] = []
 
         for window in potentialWindows {
@@ -104,6 +123,8 @@ class WindowFinderService {
 
             if isWeatherExtreme(weather) {
                 extremeWeatherWindows.append(scoredWindow)
+            } else if isWeatherPoor(weather) {
+                poorWeatherWindows.append(scoredWindow)
             } else {
                 allScoredWindows.append(scoredWindow)
             }
@@ -129,9 +150,13 @@ class WindowFinderService {
             if let bestAcceptable = acceptableScoredWindows.max(by: { $0.score < $1.score }) {
                 // There's an acceptable (but not ideal) window
                 fallbackWindow = createGoldenWindow(from: bestAcceptable, isFallback: true)
+            } else if let bestPoor = poorWeatherWindows.max(by: { $0.score < $1.score }) {
+                // Only poor weather windows available
+                noWindowReason = .poorWeather
+                fallbackWindow = createGoldenWindow(from: bestPoor, isFallback: true)
             } else if let leastBad = extremeWeatherWindows.max(by: { $0.score < $1.score }) {
-                // Only extreme weather windows available
-                noWindowReason = .extremeWeather
+                // Only unsafe weather windows available
+                noWindowReason = .unsafeWeather
                 fallbackWindow = createGoldenWindow(from: leastBad, isFallback: true)
             } else {
                 // No weather data at all
@@ -188,15 +213,26 @@ class WindowFinderService {
         endTime: Date
     ) -> [FreeTimeBlock] {
         let minDuration = TimeInterval(preferences.preferredWalkDuration * 60)
+        let calendar = Calendar.current
 
         return freeBlocks.filter { block in
+            let blockComponents = calendar.dateComponents([.hour, .minute], from: block.startTime)
+            let startComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkStartTime)
+            let endComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkEndTime)
+
+            let blockMinutes = (blockComponents.hour ?? 0) * 60 + (blockComponents.minute ?? 0)
+            let startMinutes = (startComponents.hour ?? 0) * 60 + (startComponents.minute ?? 0)
+            let endMinutes = (endComponents.hour ?? 0) * 60 + (endComponents.minute ?? 0)
+
             // Block must be within our look-ahead window
-            block.startTime >= startTime && block.startTime <= endTime &&
+            return block.startTime >= startTime && block.startTime <= endTime &&
             // Block must be at least as long as preferred walk duration
-            block.duration >= minDuration
+            block.duration >= minDuration &&
+            // Block must be within preferred walking time
+            blockMinutes >= startMinutes && blockMinutes < endMinutes
         }.map { block in
             // Create a window of exactly the preferred duration at the start of each free block
-            let windowEnd = Calendar.current.date(
+            let windowEnd = calendar.date(
                 byAdding: .minute,
                 value: preferences.preferredWalkDuration,
                 to: block.startTime
@@ -211,8 +247,8 @@ class WindowFinderService {
     }
 
     private func isWeatherExtreme(_ weather: HourlyWeather) -> Bool {
-        // Extreme weather conditions
-        if weather.weatherCondition.isExtreme {
+        // Truly dangerous conditions
+        if weather.weatherCondition == .thunderstorm {
             return true
         }
 
@@ -221,8 +257,26 @@ class WindowFinderService {
             return true
         }
 
-        // High precipitation probability
-        if weather.precipitationProbability > 0.5 {
+        // Very high precipitation probability (heavy rain)
+        if weather.precipitationProbability > 0.7 {
+            return true
+        }
+
+        return false
+    }
+
+    private func isWeatherPoor(_ weather: HourlyWeather) -> Bool {
+        // Not ideal but walkable conditions
+        if weather.weatherCondition == .rain || weather.weatherCondition == .snow {
+            return true
+        }
+
+        if weather.weatherCondition == .fog {
+            return true
+        }
+
+        // Moderate precipitation probability
+        if weather.precipitationProbability > 0.4 && weather.precipitationProbability <= 0.7 {
             return true
         }
 
@@ -331,7 +385,7 @@ class WindowFinderService {
             }
 
             if condition != .clear && condition != .partlyCloudy {
-                reasons.append(condition.rawValue.lowercased())
+                reasons.append(condition.displayName.lowercased())
             }
 
             if reasons.isEmpty {
@@ -343,7 +397,7 @@ class WindowFinderService {
 
         // Standard golden window descriptions
         if score >= 80 {
-            return "Perfect conditions—\(temp)°F and \(condition.rawValue)"
+            return "Perfect conditions—\(temp)°F and \(condition.displayName.lowercased())"
         } else if score >= 60 {
             return "Great for a walk—\(temp)°F"
         } else {
@@ -357,13 +411,23 @@ class WindowFinderService {
         weatherForecast: [HourlyWeather]
     ) -> SplitWalkSuggestion? {
         let now = Date()
-        let endTime = Calendar.current.date(byAdding: .hour, value: 12, to: now)!
+        let calendar = Calendar.current
+        let endTime = calendar.date(byAdding: .hour, value: 12, to: now)!
         let targetDuration = TimeInterval(preferences.preferredWalkDuration * 60)
 
         // Find all available blocks (even if shorter than target)
         let availableBlocks = freeBlocks.filter { block in
-            block.startTime >= now && block.startTime <= endTime &&
-            block.duration >= 600 // At least 10 minutes
+            let blockComponents = calendar.dateComponents([.hour, .minute], from: block.startTime)
+            let startComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkStartTime)
+            let endComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkEndTime)
+
+            let blockMinutes = (blockComponents.hour ?? 0) * 60 + (blockComponents.minute ?? 0)
+            let startMinutes = (startComponents.hour ?? 0) * 60 + (startComponents.minute ?? 0)
+            let endMinutes = (endComponents.hour ?? 0) * 60 + (endComponents.minute ?? 0)
+
+            return block.startTime >= now && block.startTime <= endTime &&
+            block.duration >= 600 && // At least 10 minutes
+            blockMinutes >= startMinutes && blockMinutes < endMinutes
         }
 
         guard availableBlocks.count >= 2 else {

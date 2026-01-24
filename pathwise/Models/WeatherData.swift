@@ -29,6 +29,25 @@ enum WeatherCondition: String, Codable {
     case thunderstorm
     case fog
 
+    var displayName: String {
+        switch self {
+        case .clear:
+            return "Clear"
+        case .partlyCloudy:
+            return "Partly Cloudy"
+        case .cloudy:
+            return "Cloudy"
+        case .rain:
+            return "Rain"
+        case .snow:
+            return "Snow"
+        case .thunderstorm:
+            return "Thunderstorm"
+        case .fog:
+            return "Fog"
+        }
+    }
+
     var sfSymbol: String {
         switch self {
         case .clear:

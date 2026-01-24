@@ -95,12 +95,17 @@ struct GoldenWindowCard: View {
             // Current window details
             TabView(selection: $currentWindowIndex) {
                 ForEach(Array(goldenWindows.enumerated()), id: \.element.id) { index, window in
-                    WindowDetailsView(window: window)
-                        .tag(index)
+                    WindowDetailsView(
+                        window: window,
+                        showWeatherWarning: false,
+                        weatherWarningText: nil,
+                        uvIndexColor: uvIndexColor
+                    )
+                    .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 180)
+            .frame(height: 200)
         }
     }
 
@@ -121,28 +126,15 @@ struct GoldenWindowCard: View {
                 Spacer()
             }
 
-            // Explanation banner
-            if let reason = noWindowReason {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.secondaryAccent)
-                        .font(.caption)
-
-                    Text(reason.rawValue)
-                        .font(.pathwiseCaption)
-                        .foregroundColor(.primaryText.opacity(0.8))
-                }
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.secondaryAccent.opacity(0.1))
-                .cornerRadius(CornerRadius.sm)
-            }
-
             Divider()
 
-            // Window details
-            WindowDetailsView(window: window)
+            // Window details with warning if weather-related
+            WindowDetailsView(
+                window: window,
+                showWeatherWarning: noWindowReason?.severity != WeatherSeverity.none,
+                weatherWarningText: noWindowReason?.rawValue,
+                uvIndexColor: uvIndexColor
+            )
 
             // Fallback note
             HStack(alignment: .top, spacing: Spacing.xs) {
@@ -234,9 +226,27 @@ struct GoldenWindowCard: View {
                                 .font(.system(size: 32, weight: .medium))
                                 .foregroundColor(.secondaryAccent)
 
-                            Text("\(Int(window.weather.temperature))°F")
-                                .font(.pathwiseBody)
-                                .foregroundColor(.primaryText)
+                            HStack(spacing: 4) {
+                                Text("\(Int(window.weather.temperature))°F")
+                                    .font(.pathwiseBody)
+                                    .foregroundColor(.primaryText)
+
+                                // UV Index indicator
+                                if window.weather.uvIndex > 0 {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "sun.max.fill")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(uvIndexColor(window.weather.uvIndex))
+                                        Text("\(window.weather.uvIndex)")
+                                            .font(.system(size: 9, weight: .medium))
+                                            .foregroundColor(uvIndexColor(window.weather.uvIndex))
+                                    }
+                                    .padding(.horizontal, 3)
+                                    .padding(.vertical, 2)
+                                    .background(uvIndexColor(window.weather.uvIndex).opacity(0.15))
+                                    .cornerRadius(3)
+                                }
+                            }
                         }
                     }
                 }
@@ -260,10 +270,28 @@ struct GoldenWindowCard: View {
                 .foregroundColor(.primaryText)
 
             if let reason = noWindowReason {
-                Text(reason.rawValue)
-                    .font(.pathwiseBody)
-                    .foregroundColor(.primaryText.opacity(0.6))
-                    .multilineTextAlignment(.center)
+                // Show warning banner for weather-related issues
+                if reason.severity != WeatherSeverity.none {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.secondaryAccent)
+                            .font(.caption)
+
+                        Text(reason.rawValue)
+                            .font(.pathwiseCaption)
+                            .foregroundColor(.primaryText.opacity(0.8))
+                    }
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondaryAccent.opacity(0.1))
+                    .cornerRadius(CornerRadius.sm)
+                } else {
+                    Text(reason.rawValue)
+                        .font(.pathwiseBody)
+                        .foregroundColor(.primaryText.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
             } else {
                 Text("Your schedule is too packed or the weather isn't cooperating. Try again tomorrow!")
                     .font(.pathwiseBody)
@@ -284,12 +312,30 @@ struct GoldenWindowCard: View {
         switch reason {
         case .noFreeTime:
             return "calendar.badge.exclamationmark"
-        case .extremeWeather:
+        case .unsafeWeather:
             return "cloud.bolt.rain.fill"
+        case .poorWeather:
+            return "cloud.rain.fill"
         case .scheduleTooTight:
             return "clock.badge.exclamationmark"
         case .noWeatherData:
             return "antenna.radiowaves.left.and.right.slash"
+        }
+    }
+
+    // Helper to get color for UV index
+    private func uvIndexColor(_ uvIndex: Int) -> Color {
+        switch uvIndex {
+        case 0...2:
+            return .green
+        case 3...5:
+            return .yellow
+        case 6...7:
+            return .orange
+        case 8...10:
+            return .red
+        default:
+            return .purple
         }
     }
 }
@@ -298,11 +344,33 @@ struct GoldenWindowCard: View {
 
 struct WindowDetailsView: View {
     let window: GoldenWindow
+    var showWeatherWarning: Bool = false
+    var weatherWarningText: String? = nil
+    var uvIndexColor: (Int) -> Color
 
     var body: some View {
         VStack(spacing: Spacing.md) {
-            // Time Display
-            HStack(alignment: .center, spacing: Spacing.md) {
+            // Weather Warning Banner (if applicable)
+            if showWeatherWarning, let warningText = weatherWarningText {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.secondaryAccent)
+                        .font(.caption)
+
+                    Text(warningText)
+                        .font(.pathwiseCaption)
+                        .foregroundColor(.primaryText.opacity(0.8))
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.secondaryAccent.opacity(0.1))
+                .cornerRadius(CornerRadius.sm)
+            }
+
+            // Time and Weather Display
+            HStack(alignment: .center, spacing: Spacing.lg) {
+                // Time section
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(window.timeString)
                         .font(.pathwiseLargeNumber)
@@ -313,50 +381,69 @@ struct WindowDetailsView: View {
                     Text("\(window.durationInMinutes) minute walk")
                         .font(.pathwiseBody)
                         .foregroundColor(.primaryText.opacity(0.7))
-                        .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Weather Icon
+                // Weather section
                 VStack(spacing: Spacing.xs) {
                     Image(systemName: window.weather.weatherCondition.sfSymbol)
                         .font(.system(size: 44, weight: .medium))
                         .foregroundColor(.secondaryAccent)
                         .symbolRenderingMode(.hierarchical)
 
-                    Text("\(Int(window.weather.temperature))°F")
-                        .font(.pathwiseHeadline)
-                        .foregroundColor(.primaryText)
+                    HStack(spacing: 4) {
+                        Text("\(Int(window.weather.temperature))°F")
+                            .font(.pathwiseHeadline)
+                            .foregroundColor(.primaryText)
+
+                        // UV Index indicator
+                        if window.weather.uvIndex > 0 {
+                            HStack(spacing: 2) {
+                                Image(systemName: "sun.max.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(uvIndexColor(window.weather.uvIndex))
+                                Text("\(window.weather.uvIndex)")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(uvIndexColor(window.weather.uvIndex))
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(uvIndexColor(window.weather.uvIndex).opacity(0.15))
+                            .cornerRadius(4)
+                        }
+                    }
                 }
-                .frame(width: 80)
+                .frame(width: 90)
             }
 
+            Divider()
+                .padding(.vertical, Spacing.xs)
+
             // Reason Summary
-            HStack(alignment: .top, spacing: Spacing.xs) {
+            HStack(alignment: .top, spacing: Spacing.sm) {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.accent.opacity(0.6))
-                    .frame(width: 16, height: 16)
-                    .padding(.top, 2)
+                    .font(.caption)
 
                 Text(window.reasonSummary)
                     .font(.pathwiseBody)
                     .foregroundColor(.primaryText.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineLimit(nil)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // Location (if available)
             if let locationName = window.locationName {
-                HStack(spacing: Spacing.xs) {
+                HStack(spacing: Spacing.sm) {
                     Image(systemName: "location.fill")
                         .font(.caption)
                         .foregroundColor(.accent.opacity(0.6))
-                        .frame(width: 16, height: 16)
 
                     Text(locationName)
                         .font(.pathwiseCaption)
                         .foregroundColor(.primaryText.opacity(0.6))
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -528,7 +615,7 @@ struct StatusBadge: View {
             locationName: "San Francisco, CA"
         ),
         splitWalkSuggestion: nil,
-        noWindowReason: .extremeWeather
+        noWindowReason: .unsafeWeather
     )
     .padding()
     .background(Color.primaryBackground)
