@@ -24,8 +24,13 @@ struct DashboardView: View {
                     .padding(.top, Spacing.md)
 
                     // Golden Window Card
-                    GoldenWindowCard(window: viewModel.goldenWindow)
-                        .padding(.horizontal, Spacing.lg)
+                    GoldenWindowCard(
+                        goldenWindows: viewModel.goldenWindows,
+                        fallbackWindow: viewModel.fallbackWindow,
+                        splitWalkSuggestion: viewModel.splitWalkSuggestion,
+                        noWindowReason: viewModel.noWindowReason
+                    )
+                    .padding(.horizontal, Spacing.lg)
 
                     // Activity Stats
                     ActivityStatsCard(
@@ -63,6 +68,12 @@ struct DashboardView: View {
                     Task {
                         await viewModel.refresh()
                     }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .devScenarioChanged)) { _ in
+                // Refresh when dev scenario changes
+                Task {
+                    await viewModel.refresh()
                 }
             }
         }

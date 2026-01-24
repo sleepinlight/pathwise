@@ -56,6 +56,7 @@ class ThemeManager: ObservableObject {
 
 extension Notification.Name {
     static let themeDidChange = Notification.Name("themeDidChange")
+    static let devScenarioChanged = Notification.Name("devScenarioChanged")
 }
 
 #Preview("Onboarding") {

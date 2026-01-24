@@ -12,7 +12,9 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel = SettingsViewModel()
     @StateObject private var themeManager = ThemeManager()
+    @StateObject private var devSettings = DeveloperSettings.shared
     @State private var showingResetAlert = false
+    @State private var versionTapCount = 0
 
     var body: some View {
         NavigationView {
@@ -129,6 +131,18 @@ struct SettingsView: View {
                         Text("1.0.0")
                             .foregroundColor(.primaryText.opacity(0.5))
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        versionTapCount += 1
+                        if versionTapCount >= 3 {
+                            devSettings.toggleDevMenu()
+                            versionTapCount = 0
+                        }
+                        // Reset counter after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            versionTapCount = 0
+                        }
+                    }
 
                     Button("Reset Onboarding") {
                         showingResetAlert = true
@@ -136,6 +150,34 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 } header: {
                     Text("About")
+                }
+
+                // Developer Menu (hidden unless enabled)
+                if devSettings.isEnabled {
+                    Section {
+                        Toggle("Enable Dev Menu", isOn: $devSettings.isEnabled)
+                            .foregroundColor(.orange)
+
+                        Picker("Mock Scenario", selection: $devSettings.currentScenario) {
+                            ForEach(MockScenario.allCases) { scenario in
+                                Text(scenario.rawValue).tag(scenario)
+                            }
+                        }
+
+                        Text("Triple-tap version number to toggle dev menu")
+                            .font(.pathwiseCaption)
+                            .foregroundColor(.primaryText.opacity(0.5))
+                    } header: {
+                        HStack {
+                            Image(systemName: "hammer.fill")
+                                .foregroundColor(.orange)
+                            Text("Developer")
+                                .foregroundColor(.orange)
+                        }
+                    } footer: {
+                        Text("Test different window scenarios. This menu is for development only.")
+                            .foregroundColor(.orange.opacity(0.7))
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -157,6 +199,10 @@ struct SettingsView: View {
             .onChange(of: viewModel.notificationsEnabled) { _, _ in viewModel.savePreferences() }
             .onChange(of: viewModel.notificationTime) { _, _ in viewModel.savePreferences() }
             .onChange(of: viewModel.windowReminderEnabled) { _, _ in viewModel.savePreferences() }
+            .onChange(of: devSettings.currentScenario) { _, _ in
+                // Trigger refresh when dev scenario changes
+                NotificationCenter.default.post(name: .devScenarioChanged, object: nil)
+            }
             .alert("Reset Onboarding", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
