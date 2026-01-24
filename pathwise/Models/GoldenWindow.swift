@@ -26,8 +26,21 @@ struct GoldenWindow: Identifiable, Codable {
         return formatter.string(from: startTime)
     }
 
+    var timeRangeString: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let start = formatter.string(from: startTime)
+        let end = formatter.string(from: endTime)
+        return "\(start) - \(end)"
+    }
+
     var durationInMinutes: Int {
         Int(endTime.timeIntervalSince(startTime) / 60)
+    }
+
+    var isContinuousWindow: Bool {
+        // Consider it continuous if it's longer than the typical walk duration (e.g., > 60 minutes)
+        durationInMinutes > 60
     }
 
     func isActiveNow() -> Bool {

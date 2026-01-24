@@ -11,6 +11,8 @@ import Combine
 
 enum MockScenario: String, CaseIterable, Identifiable {
     case normal = "Normal (Multiple Windows)"
+    case inGoldenWindow = "In Golden Window Now"
+    case continuousWindow = "Continuous Time Range"
     case fallbackCold = "Fallback: Cold Weather"
     case fallbackRainy = "Fallback: Rainy"
     case splitWalk = "Split Walk Suggestion"

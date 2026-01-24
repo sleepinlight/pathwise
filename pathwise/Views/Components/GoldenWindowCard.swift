@@ -12,6 +12,7 @@ struct GoldenWindowCard: View {
     let fallbackWindow: GoldenWindow?
     let splitWalkSuggestion: SplitWalkSuggestion?
     let noWindowReason: NoWindowReason?
+    let isInGoldenWindow: Bool
 
     @State private var currentWindowIndex = 0
 
@@ -22,20 +23,23 @@ struct GoldenWindowCard: View {
             self.fallbackWindow = nil
             self.splitWalkSuggestion = nil
             self.noWindowReason = nil
+            self.isInGoldenWindow = false
         } else {
             self.goldenWindows = []
             self.fallbackWindow = nil
             self.splitWalkSuggestion = nil
             self.noWindowReason = nil
+            self.isInGoldenWindow = false
         }
     }
 
     // New initializer with multiple windows support
-    init(goldenWindows: [GoldenWindow], fallbackWindow: GoldenWindow?, splitWalkSuggestion: SplitWalkSuggestion?, noWindowReason: NoWindowReason?) {
+    init(goldenWindows: [GoldenWindow], fallbackWindow: GoldenWindow?, splitWalkSuggestion: SplitWalkSuggestion?, noWindowReason: NoWindowReason?, isInGoldenWindow: Bool = false) {
         self.goldenWindows = goldenWindows
         self.fallbackWindow = fallbackWindow
         self.splitWalkSuggestion = splitWalkSuggestion
         self.noWindowReason = noWindowReason
+        self.isInGoldenWindow = isInGoldenWindow
     }
 
     var body: some View {
@@ -55,8 +59,19 @@ struct GoldenWindowCard: View {
             }
         }
         .padding(Spacing.lg)
-        .background(Color.cardBackground)
+        .background(
+            ZStack {
+                Color.cardBackground
+                if isInGoldenWindow {
+                    Color.accent.opacity(0.05)
+                }
+            }
+        )
         .cornerRadius(CornerRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg)
+                .stroke(isInGoldenWindow ? Color.accent : Color.clear, lineWidth: 2)
+        )
         .pathwiseCardShadow()
     }
 
@@ -66,11 +81,15 @@ struct GoldenWindowCard: View {
         VStack(spacing: Spacing.md) {
             // Header with navigation
             HStack {
-                Image(systemName: "sparkles")
+                Image(systemName: isInGoldenWindow ? "sparkles.rectangle.stack.fill" : "sparkles")
                     .font(.title3)
                     .foregroundColor(.accent)
 
-                if goldenWindows.count > 1 {
+                if isInGoldenWindow {
+                    Text("You're in your Golden Window!")
+                        .font(.pathwiseSubheadline)
+                        .foregroundColor(.accent)
+                } else if goldenWindows.count > 1 {
                     Text("Golden Window \(currentWindowIndex + 1) of \(goldenWindows.count)")
                         .font(.pathwiseSubheadline)
                         .foregroundColor(.primaryText)
@@ -372,15 +391,27 @@ struct WindowDetailsView: View {
             HStack(alignment: .center, spacing: Spacing.lg) {
                 // Time section
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(window.timeString)
-                        .font(.pathwiseLargeNumber)
-                        .foregroundColor(.accent)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                    if window.isContinuousWindow {
+                        Text(window.timeRangeString)
+                            .font(.pathwiseLargeNumber)
+                            .foregroundColor(.accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
 
-                    Text("\(window.durationInMinutes) minute walk")
-                        .font(.pathwiseBody)
-                        .foregroundColor(.primaryText.opacity(0.7))
+                        Text("Flexible timing available")
+                            .font(.pathwiseBody)
+                            .foregroundColor(.primaryText.opacity(0.7))
+                    } else {
+                        Text(window.timeString)
+                            .font(.pathwiseLargeNumber)
+                            .foregroundColor(.accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+
+                        Text("\(window.durationInMinutes) minute walk")
+                            .font(.pathwiseBody)
+                            .foregroundColor(.primaryText.opacity(0.7))
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

@@ -23,9 +23,13 @@ class DashboardViewModel: ObservableObject {
     @Published var fallbackWindow: GoldenWindow?
     @Published var splitWalkSuggestion: SplitWalkSuggestion?
     @Published var noWindowReason: NoWindowReason?
+    @Published var isInGoldenWindow: Bool = false
     @Published var todaySteps: Int = 0
     @Published var todayDistance: Double = 0.0
     @Published var todayMinutes: Int = 0
+    @Published var averagePace: Double? = nil  // min/mile
+    @Published var averageHeartRate: Int? = nil  // bpm
+    @Published var walkingSteadiness: Double? = nil  // percentage (0-1)
     @Published var weeklyActivities: [DailyActivity] = []
     @Published var preferences = UserPreferences()
     @Published var isLoading = false
@@ -120,6 +124,20 @@ class DashboardViewModel: ObservableObject {
         self.todayDistance = healthService.todayDistance
         self.todayMinutes = healthService.todayMinutesMoved
         self.weeklyActivities = healthService.weeklyActivities
+
+        // Mock additional health metrics (these would come from HealthKit in production)
+        if healthService.todayDistance > 0 && healthService.todayMinutesMoved > 0 {
+            // Calculate average pace (minutes per mile)
+            self.averagePace = Double(healthService.todayMinutesMoved) / healthService.todayDistance
+            // Mock heart rate (would come from HealthKit)
+            self.averageHeartRate = Int.random(in: 100...120)
+            // Mock walking steadiness (would come from HealthKit)
+            self.walkingSteadiness = Double.random(in: 0.75...0.95)
+        } else {
+            self.averagePace = nil
+            self.averageHeartRate = nil
+            self.walkingSteadiness = nil
+        }
     }
 
     // MARK: - Golden Window Calculation
@@ -186,6 +204,7 @@ class DashboardViewModel: ObservableObject {
         }
 
         self.noWindowReason = result.noWindowReason
+        self.isInGoldenWindow = result.isInGoldenWindow
     }
 
     // MARK: - Settings Update
@@ -213,6 +232,54 @@ class DashboardViewModel: ObservableObject {
                 lookAheadHours: 12
             )
 
+        case .inGoldenWindow:
+            // User is currently in a golden window
+            let window = GoldenWindow(
+                startTime: calendar.date(byAdding: .minute, value: -5, to: now)!,
+                endTime: calendar.date(byAdding: .minute, value: 15, to: now)!,
+                score: 85.0,
+                weather: HourlyWeather(
+                    time: now,
+                    temperature: 72,
+                    precipitationProbability: 0.05,
+                    uvIndex: 4,
+                    weatherCondition: .clear
+                ),
+                reasonSummary: "Perfect conditions—72°F, clear skies",
+                locationName: nil
+            )
+            return WindowResult(
+                goldenWindows: [window],
+                fallbackWindow: nil,
+                splitWalkSuggestion: nil,
+                noWindowReason: nil,
+                isInGoldenWindow: true
+            )
+
+        case .continuousWindow:
+            // Continuous time range (3+ hours of good weather)
+            let window = GoldenWindow(
+                startTime: calendar.date(byAdding: .minute, value: 30, to: now)!,
+                endTime: calendar.date(byAdding: .hour, value: 3, to: now)!,
+                score: 88.0,
+                weather: HourlyWeather(
+                    time: calendar.date(byAdding: .minute, value: 30, to: now)!,
+                    temperature: 70,
+                    precipitationProbability: 0.0,
+                    uvIndex: 5,
+                    weatherCondition: .clear
+                ),
+                reasonSummary: "Ideal conditions—70°F, clear skies",
+                locationName: nil
+            )
+            return WindowResult(
+                goldenWindows: [window],
+                fallbackWindow: nil,
+                splitWalkSuggestion: nil,
+                noWindowReason: nil,
+                isInGoldenWindow: false
+            )
+
         case .fallbackCold:
             // Single fallback window with cold weather
             let window = GoldenWindow(
@@ -233,7 +300,8 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: window,
                 splitWalkSuggestion: nil,
-                noWindowReason: nil
+                noWindowReason: nil,
+                isInGoldenWindow: false
             )
 
         case .fallbackRainy:
@@ -256,7 +324,8 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: window,
                 splitWalkSuggestion: nil,
-                noWindowReason: .poorWeather
+                noWindowReason: .poorWeather,
+                isInGoldenWindow: false
             )
 
         case .splitWalk:
@@ -301,7 +370,8 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: suggestion,
-                noWindowReason: .scheduleTooTight
+                noWindowReason: .scheduleTooTight,
+                isInGoldenWindow: false
             )
 
         case .noFreeTime:
@@ -310,7 +380,8 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
-                noWindowReason: .noFreeTime
+                noWindowReason: .noFreeTime,
+                isInGoldenWindow: false
             )
 
         case .extremeWeather:
@@ -319,7 +390,8 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
-                noWindowReason: .unsafeWeather
+                noWindowReason: .unsafeWeather,
+                isInGoldenWindow: false
             )
 
         case .scheduleTooTight:
@@ -328,7 +400,8 @@ class DashboardViewModel: ObservableObject {
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
-                noWindowReason: .scheduleTooTight
+                noWindowReason: .scheduleTooTight,
+                isInGoldenWindow: false
             )
         }
     }

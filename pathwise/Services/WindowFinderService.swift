@@ -31,6 +31,7 @@ struct WindowResult {
     let fallbackWindow: GoldenWindow?  // Best available if no golden windows
     let splitWalkSuggestion: SplitWalkSuggestion?  // Suggestion to split walk into multiple sessions
     let noWindowReason: NoWindowReason? // Why there are no windows
+    let isInGoldenWindow: Bool  // Is the current time within a golden window?
 
     var hasGoldenWindows: Bool {
         !goldenWindows.isEmpty
@@ -104,7 +105,8 @@ class WindowFinderService {
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: splitSuggestion,
-                noWindowReason: reason
+                noWindowReason: reason,
+                isInGoldenWindow: false
             )
         }
 
@@ -170,11 +172,17 @@ class WindowFinderService {
             splitSuggestion = findSplitWalkSuggestion(freeBlocks: freeBlocks, weatherForecast: weatherForecast)
         }
 
+        // Check if current time is within any golden window
+        let isInGoldenWindow = goldenWindows.contains { window in
+            now >= window.startTime && now <= window.endTime
+        }
+
         return WindowResult(
             goldenWindows: goldenWindows,
             fallbackWindow: fallbackWindow,
             splitWalkSuggestion: splitSuggestion,
-            noWindowReason: noWindowReason
+            noWindowReason: noWindowReason,
+            isInGoldenWindow: isInGoldenWindow
         )
     }
 
@@ -212,7 +220,8 @@ class WindowFinderService {
         startTime: Date,
         endTime: Date
     ) -> [FreeTimeBlock] {
-        let minDuration = TimeInterval(preferences.preferredWalkDuration * 60)
+        let bufferMinutes = 3 // Buffer time before and after walk
+        let totalRequiredDuration = TimeInterval((preferences.preferredWalkDuration + bufferMinutes * 2) * 60)
         let calendar = Calendar.current
 
         return freeBlocks.filter { block in
@@ -226,18 +235,24 @@ class WindowFinderService {
 
             // Block must be within our look-ahead window
             return block.startTime >= startTime && block.startTime <= endTime &&
-            // Block must be at least as long as preferred walk duration
-            block.duration >= minDuration &&
+            // Block must be at least as long as walk duration + buffer on both sides
+            block.duration >= totalRequiredDuration &&
             // Block must be within preferred walking time
             blockMinutes >= startMinutes && blockMinutes < endMinutes
         }.map { block in
-            // Create a window of exactly the preferred duration at the start of each free block
+            // Create a window with buffer time before and after
+            // Start the walk after the buffer
+            let windowStart = calendar.date(
+                byAdding: .minute,
+                value: bufferMinutes,
+                to: block.startTime
+            )!
             let windowEnd = calendar.date(
                 byAdding: .minute,
                 value: preferences.preferredWalkDuration,
-                to: block.startTime
+                to: windowStart
             )!
-            return FreeTimeBlock(startTime: block.startTime, endTime: windowEnd)
+            return FreeTimeBlock(startTime: windowStart, endTime: windowEnd)
         }
     }
 

@@ -18,6 +18,7 @@ struct DashboardView: View {
                     // Header
                     HeaderView(
                         greeting: viewModel.greeting,
+                        isInGoldenWindow: viewModel.isInGoldenWindow,
                         onSettingsTap: { showingSettings = true }
                     )
                     .padding(.horizontal, Spacing.lg)
@@ -28,7 +29,8 @@ struct DashboardView: View {
                         goldenWindows: viewModel.goldenWindows,
                         fallbackWindow: viewModel.fallbackWindow,
                         splitWalkSuggestion: viewModel.splitWalkSuggestion,
-                        noWindowReason: viewModel.noWindowReason
+                        noWindowReason: viewModel.noWindowReason,
+                        isInGoldenWindow: viewModel.isInGoldenWindow
                     )
                     .padding(.horizontal, Spacing.lg)
 
@@ -37,7 +39,10 @@ struct DashboardView: View {
                         steps: viewModel.todaySteps,
                         distance: viewModel.todayDistance,
                         minutes: viewModel.todayMinutes,
-                        stepGoal: viewModel.preferences.dailyStepGoal
+                        stepGoal: viewModel.preferences.dailyStepGoal,
+                        averagePace: viewModel.averagePace,
+                        averageHeartRate: viewModel.averageHeartRate,
+                        walkingSteadiness: viewModel.walkingSteadiness
                     )
                     .padding(.horizontal, Spacing.lg)
 
@@ -85,6 +90,7 @@ struct DashboardView: View {
 
 struct HeaderView: View {
     let greeting: String
+    let isInGoldenWindow: Bool
     let onSettingsTap: () -> Void
 
     var body: some View {
@@ -95,7 +101,7 @@ struct HeaderView: View {
                         .font(.pathwiseTitle)
                         .foregroundColor(.primaryText)
 
-                    Text("Find your perfect walking window")
+                    Text(isInGoldenWindow ? "It's a great time for a walk!" : "Find your perfect walking window")
                         .font(.pathwiseBody)
                         .foregroundColor(.primaryText.opacity(0.6))
                 }
