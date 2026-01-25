@@ -393,10 +393,10 @@ struct WindowDetailsView: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     if window.isContinuousWindow {
                         Text(window.timeRangeString)
-                            .font(.pathwiseLargeNumber)
+                            .font(.pathwiseHeadline)
                             .foregroundColor(.accent)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text("Flexible timing available")
                             .font(.pathwiseBody)
@@ -516,6 +516,7 @@ struct TimelineSegment: View {
             Circle()
                 .fill(isSelected ? Color.accent : Color.accent.opacity(0.3))
                 .frame(width: isSelected ? 12 : 8, height: isSelected ? 12 : 8)
+                .frame(height: 12, alignment: .center) // Fixed height for alignment
 
             // Time label
             if isSelected {
@@ -523,6 +524,11 @@ struct TimelineSegment: View {
                     .font(.pathwiseCaption)
                     .foregroundColor(.accent)
                     .fontWeight(.semibold)
+            } else {
+                // Invisible placeholder to maintain consistent height
+                Text(" ")
+                    .font(.pathwiseCaption)
+                    .opacity(0)
             }
         }
         .frame(maxWidth: .infinity)
@@ -593,7 +599,7 @@ struct StatusBadge: View {
             ),
             GoldenWindow(
                 startTime: Calendar.current.date(byAdding: .hour, value: 3, to: Date())!,
-                endTime: Calendar.current.date(byAdding: .hour, value: 3, to: Date())!.addingTimeInterval(1200),
+                endTime: Calendar.current.date(byAdding: .hour, value: 5, to: Date())!.addingTimeInterval(1800),
                 score: 75.0,
                 weather: HourlyWeather(
                     time: Calendar.current.date(byAdding: .hour, value: 3, to: Date())!,
@@ -602,15 +608,15 @@ struct StatusBadge: View {
                     uvIndex: 4,
                     weatherCondition: .partlyCloudy
                 ),
-                reasonSummary: "Great for a walk—68°F",
+                reasonSummary: "Great for a walk—68°F with flexible timing",
                 locationName: "San Francisco, CA"
             ),
             GoldenWindow(
-                startTime: Calendar.current.date(byAdding: .hour, value: 6, to: Date())!,
-                endTime: Calendar.current.date(byAdding: .hour, value: 6, to: Date())!.addingTimeInterval(1200),
+                startTime: Calendar.current.date(byAdding: .hour, value: 7, to: Date())!,
+                endTime: Calendar.current.date(byAdding: .hour, value: 7, to: Date())!.addingTimeInterval(1200),
                 score: 70.0,
                 weather: HourlyWeather(
-                    time: Calendar.current.date(byAdding: .hour, value: 6, to: Date())!,
+                    time: Calendar.current.date(byAdding: .hour, value: 7, to: Date())!,
                     temperature: 65,
                     precipitationProbability: 0.15,
                     uvIndex: 3,
