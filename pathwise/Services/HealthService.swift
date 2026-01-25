@@ -180,11 +180,10 @@ class HealthService: ObservableObject {
             let daysSinceReferenceDate = Int(date.timeIntervalSinceReferenceDate / 86400)
             let pseudoRandom = Double((daysSinceReferenceDate * 9301 + 49297) % 233280) / 233280.0
 
-            // Generate fixed step count per day (not relative to goal)
-            // Use a base of 8000 steps with variance from 30% to 130%
-            let baseGoal = 8000.0
+            // Generate fixed step count per day (not relative to current goal)
+            // Use user's goal as base with variance from 30% to 130% to simulate realistic activity
             let progress = 0.3 + (pseudoRandom * 1.0) // Scales from 0.3 to 1.3
-            let steps = Int(baseGoal * progress) // Fixed steps for this day
+            let steps = Int(Double(stepGoal) * progress) // Fixed steps for this day
 
             // Claimed window if goal was met
             let claimedWindow = steps >= stepGoal
