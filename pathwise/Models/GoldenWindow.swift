@@ -26,8 +26,21 @@ struct GoldenWindow: Identifiable, Codable {
         return formatter.string(from: startTime)
     }
 
+    var timeRangeString: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let start = formatter.string(from: startTime)
+        let end = formatter.string(from: endTime)
+        return "\(start) - \(end)"
+    }
+
     var durationInMinutes: Int {
         Int(endTime.timeIntervalSince(startTime) / 60)
+    }
+
+    var isContinuousWindow: Bool {
+        // Consider it continuous if it's longer than the typical walk duration (e.g., > 60 minutes)
+        durationInMinutes > 60
     }
 
     func isActiveNow() -> Bool {
@@ -66,6 +79,19 @@ enum AppTheme: String, Codable, CaseIterable {
     case system = "System"
 }
 
+enum DarkModeStyle: String, Codable, CaseIterable {
+    case `default` = "Default"
+    case black = "Black"
+}
+
+enum NoWindowReason: String, Codable {
+    case noFreeTime = "Your calendar is fully booked"
+    case unsafeWeather = "Weather conditions are unsafe"
+    case poorWeather = "Weather conditions aren't ideal"
+    case scheduleTooTight = "No time slots long enough for a walk"
+    case noWeatherData = "Weather data unavailable"
+}
+
 struct UserPreferences: Codable {
     var preferredWalkDuration: Int = 20 // minutes
     var idealTemperatureMin: Double = 60 // Fahrenheit
@@ -75,6 +101,9 @@ struct UserPreferences: Codable {
     var dailyStepGoal: Int = 8000
     var morningNotificationTime: Date = Calendar.current.date(from: DateComponents(hour: 8, minute: 30))!
     var theme: AppTheme = .system
+    var darkModeStyle: DarkModeStyle = .default
+    var preferredWalkStartTime: Date = Calendar.current.date(from: DateComponents(hour: 6, minute: 0))!  // 6:00 AM default
+    var preferredWalkEndTime: Date = Calendar.current.date(from: DateComponents(hour: 20, minute: 0))!   // 8:00 PM default
 
     func isTemperatureIdeal(_ temp: Double) -> Bool {
         temp >= idealTemperatureMin && temp <= idealTemperatureMax

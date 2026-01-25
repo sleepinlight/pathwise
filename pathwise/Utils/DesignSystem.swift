@@ -105,17 +105,47 @@ extension Color {
     static let lightText = Color.oceanText
     static let lightCardBackground = Color.paleCloud
 
-    // Dark Mode Colors
+    // Dark Mode Colors - Default (Blue)
     static let darkBackground = Color(hex: "#0A1929")        // Deep blue-black
     static let darkBackgroundGradientTop = Color(hex: "#0D1F33") // Slightly lighter blue for gradient
     static let darkText = Color(hex: "#E3F2FD")              // Very light blue-white
     static let darkCardBackground = Color(hex: "#132F4C")     // Dark blue for cards
 
-    // Semantic Colors - Adaptive based on color scheme
-    static let primaryBackground = Color(light: lightBackground, dark: darkBackground)
-    static let primaryText = Color(light: lightText, dark: darkText)
+    // Dark Mode Colors - Black
+    static let blackBackground = Color(hex: "#000000")        // Pure black
+    static let blackText = Color(hex: "#FFFFFF")              // Pure white
+    static let blackCardBackground = Color(hex: "#1C1C1E")    // Dark gray for cards
+
+    // Semantic Colors - Adaptive based on color scheme and dark mode style
+    static var primaryBackground: Color {
+        adaptiveColor(light: lightBackground, darkDefault: darkBackground, darkBlack: blackBackground)
+    }
+
+    static var primaryText: Color {
+        adaptiveColor(light: lightText, darkDefault: darkText, darkBlack: blackText)
+    }
+
     static let accent = Color.skyBlueAccent  // Same in both modes
-    static let cardBackground = Color(light: lightCardBackground, dark: darkCardBackground)
+
+    static var cardBackground: Color {
+        adaptiveColor(light: lightCardBackground, darkDefault: darkCardBackground, darkBlack: blackCardBackground)
+    }
+
+    // Helper for adaptive colors based on dark mode style
+    private static func adaptiveColor(light: Color, darkDefault: Color, darkBlack: Color) -> Color {
+        Color(adaptiveDynamic: { traitCollection in
+            if traitCollection.userInterfaceStyle == .dark {
+                // Check user preference for dark mode style
+                if let data = UserDefaults.standard.data(forKey: "userPreferences"),
+                   let preferences = try? JSONDecoder().decode(UserPreferences.self, from: data),
+                   preferences.darkModeStyle == .black {
+                    return UIColor(darkBlack)
+                }
+                return UIColor(darkDefault)
+            }
+            return UIColor(light)
+        })
+    }
 
     // Secondary accent
     static let secondaryAccent = Color.sunriseOrange  // Use for warm highlights
@@ -197,5 +227,10 @@ extension Color {
                 return UIColor(light)
             }
         })
+    }
+
+    // Adaptive color initializer with custom dynamic logic
+    init(adaptiveDynamic: @escaping (UITraitCollection) -> UIColor) {
+        self.init(uiColor: UIColor(dynamicProvider: adaptiveDynamic))
     }
 }
