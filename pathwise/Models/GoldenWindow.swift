@@ -84,6 +84,14 @@ enum DarkModeStyle: String, Codable, CaseIterable {
     case black = "Black"
 }
 
+enum NoWindowReason: String, Codable {
+    case noFreeTime = "Your calendar is fully booked"
+    case unsafeWeather = "Weather conditions are unsafe"
+    case poorWeather = "Weather conditions aren't ideal"
+    case scheduleTooTight = "No time slots long enough for a walk"
+    case noWeatherData = "Weather data unavailable"
+}
+
 struct UserPreferences: Codable {
     var preferredWalkDuration: Int = 20 // minutes
     var idealTemperatureMin: Double = 60 // Fahrenheit

@@ -138,6 +138,9 @@ class DashboardViewModel: ObservableObject {
             self.averageHeartRate = nil
             self.walkingSteadiness = nil
         }
+
+        // Update widget after loading activity data
+        updateWidgetData()
     }
 
     // MARK: - Golden Window Calculation
@@ -205,6 +208,26 @@ class DashboardViewModel: ObservableObject {
 
         self.noWindowReason = result.noWindowReason
         self.isInGoldenWindow = result.isInGoldenWindow
+
+        // Update widget with new data
+        updateWidgetData()
+    }
+
+    // MARK: - Widget Data Update
+    private func updateWidgetData() {
+        let widgetData = PathwiseWidgetDataManager.createPathwiseWidgetData(
+            goldenWindow: goldenWindows.first,
+            additionalWindows: Array(goldenWindows.dropFirst().prefix(2)), // Up to 2 additional windows
+            fallbackWindow: fallbackWindow,
+            noWindowReason: noWindowReason,
+            todaySteps: todaySteps,
+            stepGoal: preferences.dailyStepGoal,
+            isInGoldenWindow: isInGoldenWindow,
+            theme: preferences.theme,
+            darkModeStyle: preferences.darkModeStyle
+        )
+
+        PathwiseWidgetDataManager.shared.savePathwiseWidgetData(widgetData)
     }
 
     // MARK: - Settings Update

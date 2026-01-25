@@ -46,13 +46,13 @@ struct WindowResult {
     }
 }
 
-enum NoWindowReason: String {
-    case noFreeTime = "Your calendar is fully booked"
-    case unsafeWeather = "Weather conditions are unsafe"
-    case poorWeather = "Weather conditions aren't ideal"
-    case scheduleTooTight = "No time slots long enough for a walk"
-    case noWeatherData = "Weather data unavailable"
+enum WeatherSeverity {
+    case none      // Not weather-related
+    case poor      // Not ideal but walkable (light rain, fog, mild conditions)
+    case unsafe    // Dangerous (thunderstorms, heavy rain, extreme temps)
+}
 
+extension NoWindowReason {
     var severity: WeatherSeverity {
         switch self {
         case .unsafeWeather:
@@ -63,12 +63,6 @@ enum NoWindowReason: String {
             return .none
         }
     }
-}
-
-enum WeatherSeverity {
-    case none      // Not weather-related
-    case poor      // Not ideal but walkable (light rain, fog, mild conditions)
-    case unsafe    // Dangerous (thunderstorms, heavy rain, extreme temps)
 }
 
 class WindowFinderService {
