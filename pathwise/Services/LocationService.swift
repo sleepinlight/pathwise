@@ -49,15 +49,23 @@ class LocationService: NSObject, ObservableObject {
     }
 
     // MARK: - Get Location
-    func requestLocation() {
+    func requestLocation() async {
+        print("📍 LocationService: Requesting location...")
+
         guard hasLocationAccess else {
             // Use mock location if no access
+            print("📍 LocationService: No location access, using mock location")
             useMockLocation()
             return
         }
 
-        locationManager.requestLocation()
+        return await withCheckedContinuation { continuation in
+            self.locationContinuation = continuation
+            locationManager.requestLocation()
+        }
     }
+
+    private var locationContinuation: CheckedContinuation<Void, Never>?
 
     // MARK: - Reverse Geocoding
     private func reverseGeocodeLocation(_ location: CLLocation) async {
@@ -154,20 +162,33 @@ extension LocationService: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.first else { return }
+        guard let location = locations.first else {
+            locationContinuation?.resume()
+            locationContinuation = nil
+            return
+        }
 
+        print("📍 LocationService: Got location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
         currentLocation = location
 
         // Reverse geocode to get location name
         Task {
             await reverseGeocodeLocation(location)
         }
+
+        // Resume the continuation
+        locationContinuation?.resume()
+        locationContinuation = nil
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error)")
+        print("❌ LocationService: Location error: \(error)")
 
         // Fall back to mock location
         useMockLocation()
+
+        // Resume the continuation
+        locationContinuation?.resume()
+        locationContinuation = nil
     }
 }

@@ -24,12 +24,15 @@ class DashboardViewModel: ObservableObject {
     @Published var splitWalkSuggestion: SplitWalkSuggestion?
     @Published var noWindowReason: NoWindowReason?
     @Published var isInGoldenWindow: Bool = false
+    @Published var activeWeatherAlerts: [WeatherAlert] = []
+    @Published var isCalendarBlocking: Bool = false
+    @Published var isIgnoringCalendar: Bool = false
     @Published var todaySteps: Int = 0
     @Published var todayDistance: Double = 0.0
     @Published var todayMinutes: Int = 0
     @Published var averagePace: Double? = nil  // min/mile
     @Published var averageHeartRate: Int? = nil  // bpm
-    @Published var walkingSteadiness: Double? = nil  // percentage (0-1)
+    @Published var activeCalories: Double = 0.0  // kcal
     @Published var weeklyActivities: [DailyActivity] = []
     @Published var preferences = UserPreferences()
     @Published var isLoading = false
@@ -58,9 +61,12 @@ class DashboardViewModel: ObservableObject {
         // Load preferences from UserDefaults
         loadPreferences()
 
-        // For Phase 1, we'll use mock data for easier development
-        // In production, you'd request permissions and fetch real data
-        await loadMockData()
+        let dev = DeveloperSettings.shared
+        if dev.isEnabled && dev.enableMocks {
+            await loadMockData()
+        } else {
+            await loadRealData()
+        }
 
         // Calculate the Golden Window
         calculateGoldenWindow()
@@ -72,7 +78,12 @@ class DashboardViewModel: ObservableObject {
         // Reload preferences in case they changed in settings
         loadPreferences()
 
-        await loadMockData()
+        let dev = DeveloperSettings.shared
+        if dev.isEnabled && dev.enableMocks {
+            await loadMockData()
+        } else {
+            await loadRealData()
+        }
         calculateGoldenWindow()
     }
 
@@ -83,8 +94,7 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Real Data Loading (commented out for Phase 1)
-    /*
+    // MARK: - Real Data Loading
     private func loadRealData() async {
         // Request permissions
         async let calendarAccess = calendarService.requestCalendarAccess()
@@ -92,24 +102,50 @@ class DashboardViewModel: ObservableObject {
 
         let (hasCalendar, hasHealth) = await (calendarAccess, healthAccess)
 
+        // Request location permission and location
+        await locationService.requestLocationPermission()
+        await locationService.requestLocation()
+
+        let location = locationService.currentLocation
+
+        // Fetch weather for current location if available, else clear forecast
+        if let location = location {
+            print("📍 DashboardViewModel: Location available, fetching weather")
+            await weatherService.fetchWeather(for: location)
+        } else {
+            print("⚠️ DashboardViewModel: No location available, cannot fetch weather")
+            weatherService.currentForecast = []
+            weatherService.error = .locationUnavailable
+        }
+
         // Fetch data concurrently
         async let calendar = calendarService.fetchTodayEvents()
-        async let weather = weatherService.fetchWeather(for: userLocation)
         async let todayActivity = healthService.fetchTodayActivity()
         async let weeklyActivity = healthService.fetchWeeklyActivity()
 
-        await (calendar, weather, todayActivity, weeklyActivity)
+        _ = await (calendar, todayActivity, weeklyActivity)
 
         // Update published properties
         self.todaySteps = healthService.todaySteps
         self.todayDistance = healthService.todayDistance
         self.todayMinutes = healthService.todayMinutesMoved
+        self.activeCalories = healthService.todayActiveCalories
+        self.averageHeartRate = healthService.todayAverageHeartRate
         self.weeklyActivities = healthService.weeklyActivities
+
+        // Calculate average pace if we have distance and time data
+        if healthService.todayDistance > 0 && healthService.todayMinutesMoved > 0 {
+            self.averagePace = Double(healthService.todayMinutesMoved) / healthService.todayDistance
+        } else {
+            self.averagePace = nil
+        }
     }
-    */
 
     // MARK: - Mock Data Loading
     private func loadMockData() async {
+        let dev = DeveloperSettings.shared
+        guard dev.isEnabled && dev.enableMocks else { return }
+
         // Use mock data for development
         weatherService.fetchMockWeather()
         calendarService.useMockCalendar()
@@ -123,20 +159,15 @@ class DashboardViewModel: ObservableObject {
         self.todaySteps = healthService.todaySteps
         self.todayDistance = healthService.todayDistance
         self.todayMinutes = healthService.todayMinutesMoved
+        self.activeCalories = healthService.todayActiveCalories
+        self.averageHeartRate = healthService.todayAverageHeartRate
         self.weeklyActivities = healthService.weeklyActivities
 
-        // Mock additional health metrics (these would come from HealthKit in production)
+        // Calculate average pace if we have distance and time data
         if healthService.todayDistance > 0 && healthService.todayMinutesMoved > 0 {
-            // Calculate average pace (minutes per mile)
             self.averagePace = Double(healthService.todayMinutesMoved) / healthService.todayDistance
-            // Mock heart rate (would come from HealthKit)
-            self.averageHeartRate = Int.random(in: 100...120)
-            // Mock walking steadiness (would come from HealthKit)
-            self.walkingSteadiness = Double.random(in: 0.75...0.95)
         } else {
             self.averagePace = nil
-            self.averageHeartRate = nil
-            self.walkingSteadiness = nil
         }
 
         // Update widget after loading activity data
@@ -149,12 +180,17 @@ class DashboardViewModel: ObservableObject {
         let devSettings = DeveloperSettings.shared
         let result: WindowResult
 
-        if devSettings.isEnabled && devSettings.currentScenario != .normal {
+        if devSettings.isEnabled && devSettings.enableMocks && devSettings.currentScenario != .normal {
             result = generateDevScenarioResult(scenario: devSettings.currentScenario)
         } else {
+            // Get active weather alerts from WeatherService
+            let alerts = weatherService.weatherAlerts
+
             result = windowFinder.findAllWindows(
                 freeBlocks: calendarService.freeBlocks,
                 weatherForecast: weatherService.currentForecast,
+                activeWeatherAlerts: alerts,
+                ignoreCalendar: isIgnoringCalendar,
                 lookAheadHours: 12
             )
         }
@@ -208,9 +244,17 @@ class DashboardViewModel: ObservableObject {
 
         self.noWindowReason = result.noWindowReason
         self.isInGoldenWindow = result.isInGoldenWindow
+        self.activeWeatherAlerts = result.activeWeatherAlerts
+        self.isCalendarBlocking = result.isCalendarBlocking
 
         // Update widget with new data
         updateWidgetData()
+    }
+
+    // MARK: - Show Me Anyway Action
+    func handleShowMeAnyway() {
+        isIgnoringCalendar = true
+        calculateGoldenWindow()
     }
 
     // MARK: - Widget Data Update
@@ -276,7 +320,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
                 noWindowReason: nil,
-                isInGoldenWindow: true
+                isInGoldenWindow: true,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .continuousWindow:
@@ -300,7 +346,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
                 noWindowReason: nil,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .fallbackCold:
@@ -324,7 +372,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: window,
                 splitWalkSuggestion: nil,
                 noWindowReason: nil,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .fallbackRainy:
@@ -348,7 +398,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: window,
                 splitWalkSuggestion: nil,
                 noWindowReason: .poorWeather,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .splitWalk:
@@ -394,7 +446,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: nil,
                 splitWalkSuggestion: suggestion,
                 noWindowReason: .scheduleTooTight,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .noFreeTime:
@@ -404,7 +458,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
                 noWindowReason: .noFreeTime,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .extremeWeather:
@@ -414,7 +470,9 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
                 noWindowReason: .unsafeWeather,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
 
         case .scheduleTooTight:
@@ -424,8 +482,11 @@ class DashboardViewModel: ObservableObject {
                 fallbackWindow: nil,
                 splitWalkSuggestion: nil,
                 noWindowReason: .scheduleTooTight,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: [],
+                calendarWasConsidered: false
             )
         }
     }
 }
+

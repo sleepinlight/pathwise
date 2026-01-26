@@ -14,6 +14,7 @@ class WeatherService: ObservableObject {
     private let weatherService = WeatherKit.WeatherService.shared
 
     @Published var currentForecast: [HourlyWeather] = []
+    @Published var weatherAlerts: [WeatherAlert] = []
     @Published var isLoading = false
     @Published var error: WeatherError?
 
@@ -24,21 +25,41 @@ class WeatherService: ObservableObject {
             error = nil
         }
 
+        print("🌤 WeatherService: Fetching weather for location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+
         do {
             let weather = try await weatherService.weather(for: location)
+            print("🌤 WeatherService: Successfully fetched weather data")
 
             // Convert WeatherKit hourly forecast to our model
             let hourlyForecasts = weather.hourlyForecast.forecast.prefix(24).map { hour in
                 convertToHourlyWeather(hour)
             }
 
+            // Convert WeatherKit alerts to our model
+            let alerts = weather.weatherAlerts?.compactMap { alert in
+                convertToWeatherAlert(alert)
+            } ?? []
+
             await MainActor.run {
                 self.currentForecast = hourlyForecasts
+                self.weatherAlerts = alerts
                 self.isLoading = false
             }
         } catch {
+            print("❌ WeatherService: Error fetching weather - \(error)")
+            print("❌ WeatherService: Error type: \(type(of: error))")
+            print("❌ WeatherService: Error localized description: \(error.localizedDescription)")
+
             await MainActor.run {
-                self.error = .fetchFailed(error.localizedDescription)
+                // Provide more detailed error messaging
+                let errorMessage: String
+                if let weatherError = error as? WeatherError {
+                    errorMessage = weatherError.localizedDescription
+                } else {
+                    errorMessage = "WeatherKit error: \(error.localizedDescription). Ensure WeatherKit is enabled in your Apple Developer account and location permission is granted."
+                }
+                self.error = .fetchFailed(errorMessage)
                 self.isLoading = false
             }
         }
@@ -109,6 +130,45 @@ class WeatherService: ObservableObject {
         default:
             return .partlyCloudy
         }
+    }
+
+    // MARK: - Weather Alert Conversion
+    private func convertToWeatherAlert(_ weatherKitAlert: WeatherKit.WeatherAlert) -> WeatherAlert? {
+        // Map WeatherKit severity to our severity
+        let severity: WeatherAlertSeverity
+        switch weatherKitAlert.severity {
+        case .extreme:
+            severity = .extreme
+        case .severe:
+            severity = .severe
+        case .moderate:
+            severity = .moderate
+        case .minor, .unknown:
+            severity = .minor
+        @unknown default:
+            severity = .minor
+        }
+
+        // Get event name and headline from WeatherKit alert
+        // WeatherKit provides: source (issuing authority), summary (headline)
+        let event = weatherKitAlert.source // e.g., "National Weather Service"
+        let headline = weatherKitAlert.summary
+
+        // NOTE: WeatherKit's Swift API doesn't expose effectiveTime/expireTime properties
+        // directly on WeatherAlert like the REST API does. As a workaround, we use the
+        // current time as the start and add 24 hours for a reasonable end time.
+        // This ensures alerts are considered "active" when they appear in the API response.
+        let now = Date()
+        let startTime = now
+        let endTime = Calendar.current.date(byAdding: .hour, value: 24, to: now) ?? now
+
+        return WeatherAlert(
+            event: event,
+            headline: headline,
+            severity: severity,
+            startTime: startTime,
+            endTime: endTime
+        )
     }
 }
 

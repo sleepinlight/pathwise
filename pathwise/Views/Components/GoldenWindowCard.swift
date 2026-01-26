@@ -13,6 +13,9 @@ struct GoldenWindowCard: View {
     let splitWalkSuggestion: SplitWalkSuggestion?
     let noWindowReason: NoWindowReason?
     let isInGoldenWindow: Bool
+    let activeWeatherAlerts: [WeatherAlert]
+    let isCalendarBlocking: Bool
+    let onShowMeAnyway: (() -> Void)?
 
     @State private var currentWindowIndex = 0
 
@@ -31,15 +34,30 @@ struct GoldenWindowCard: View {
             self.noWindowReason = nil
             self.isInGoldenWindow = false
         }
+        self.activeWeatherAlerts = []
+        self.isCalendarBlocking = false
+        self.onShowMeAnyway = nil
     }
 
     // New initializer with multiple windows support
-    init(goldenWindows: [GoldenWindow], fallbackWindow: GoldenWindow?, splitWalkSuggestion: SplitWalkSuggestion?, noWindowReason: NoWindowReason?, isInGoldenWindow: Bool = false) {
+    init(
+        goldenWindows: [GoldenWindow],
+        fallbackWindow: GoldenWindow?,
+        splitWalkSuggestion: SplitWalkSuggestion?,
+        noWindowReason: NoWindowReason?,
+        isInGoldenWindow: Bool = false,
+        activeWeatherAlerts: [WeatherAlert] = [],
+        isCalendarBlocking: Bool = false,
+        onShowMeAnyway: (() -> Void)? = nil
+    ) {
         self.goldenWindows = goldenWindows
         self.fallbackWindow = fallbackWindow
         self.splitWalkSuggestion = splitWalkSuggestion
         self.noWindowReason = noWindowReason
         self.isInGoldenWindow = isInGoldenWindow
+        self.activeWeatherAlerts = activeWeatherAlerts
+        self.isCalendarBlocking = isCalendarBlocking
+        self.onShowMeAnyway = onShowMeAnyway
     }
 
     var body: some View {
@@ -317,9 +335,84 @@ struct GoldenWindowCard: View {
                     .foregroundColor(.primaryText.opacity(0.6))
                     .multilineTextAlignment(.center)
             }
+
+            // Show severe weather alerts if present
+            if !activeWeatherAlerts.isEmpty {
+                Divider()
+                    .padding(.vertical, Spacing.xs)
+
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text("Active Weather Alerts")
+                        .font(.pathwiseSubheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primaryText)
+
+                    ForEach(activeWeatherAlerts) { alert in
+                        HStack(alignment: .top, spacing: Spacing.sm) {
+                            Image(systemName: alert.iconName)
+                                .font(.title3)
+                                .foregroundColor(colorForAlertSeverity(alert.severity))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(alert.event)
+                                    .font(.pathwiseCaption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primaryText)
+
+                                Text(alert.headline)
+                                    .font(.pathwiseCaption)
+                                    .foregroundColor(.primaryText.opacity(0.8))
+                            }
+                        }
+                        .padding(Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(colorForAlertSeverity(alert.severity).opacity(0.1))
+                        .cornerRadius(CornerRadius.sm)
+                    }
+                }
+            }
+            // Show "Show Me Anyway" button if calendar is blocking and no severe alerts
+            else if isCalendarBlocking, let action = onShowMeAnyway {
+                Divider()
+                    .padding(.vertical, Spacing.xs)
+
+                Button(action: action) {
+                    HStack {
+                        Image(systemName: "calendar.badge.minus")
+                            .font(.body)
+                        Text("Show Me Anyway")
+                            .font(.pathwiseBody)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.md)
+                    .background(Color.accent)
+                    .cornerRadius(CornerRadius.md)
+                }
+
+                Text("Ignore calendar and show windows based on weather only")
+                    .font(.pathwiseCaption)
+                    .foregroundColor(.primaryText.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.lg)
+    }
+
+    // Helper to get color for alert severity
+    private func colorForAlertSeverity(_ severity: WeatherAlertSeverity) -> Color {
+        switch severity {
+        case .extreme:
+            return .red
+        case .severe:
+            return .orange
+        case .moderate:
+            return .yellow
+        case .minor:
+            return .blue
+        }
     }
 
     // Helper to get appropriate icon for no-window reason

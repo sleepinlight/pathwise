@@ -37,6 +37,13 @@ class DeveloperSettings: ObservableObject {
             UserDefaults.standard.set(currentScenario.rawValue, forKey: "devMockScenario")
         }
     }
+    
+    @Published var enableMocks: Bool {
+        didSet {
+            UserDefaults.standard.set(enableMocks, forKey: "devEnableMocks")
+            NotificationCenter.default.post(name: .devMocksToggled, object: nil)
+        }
+    }
 
     private init() {
         self.isEnabled = UserDefaults.standard.bool(forKey: "devMenuEnabled")
@@ -47,6 +54,8 @@ class DeveloperSettings: ObservableObject {
         } else {
             self.currentScenario = .normal
         }
+        
+        self.enableMocks = UserDefaults.standard.bool(forKey: "devEnableMocks")
     }
 
     // Secret gesture to enable dev menu: triple tap on version number
@@ -54,3 +63,7 @@ class DeveloperSettings: ObservableObject {
         isEnabled.toggle()
     }
 }
+extension Notification.Name {
+    static let devMocksToggled = Notification.Name("devMocksToggled")
+}
+

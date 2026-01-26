@@ -15,7 +15,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if onboardingState.hasCompletedOnboarding {
-                DashboardView()
+                MainTabView()
             } else {
                 OnboardingView(isOnboardingComplete: $onboardingState.hasCompletedOnboarding)
             }

@@ -16,11 +16,15 @@ class HealthService: ObservableObject {
     @Published var todaySteps: Int = 0
     @Published var todayDistance: Double = 0.0
     @Published var todayMinutesMoved: Int = 0
+    @Published var todayActiveCalories: Double = 0.0
+    @Published var todayAverageHeartRate: Int? = nil
     @Published var weeklyActivities: [DailyActivity] = []
 
     private let stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     private let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!
     private let exerciseTimeType = HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!
+    private let activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
+    private let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
 
     // MARK: - Authorization
     func requestHealthAccess() async -> Bool {
@@ -31,7 +35,9 @@ class HealthService: ObservableObject {
         let typesToRead: Set<HKObjectType> = [
             stepCountType,
             distanceType,
-            exerciseTimeType
+            exerciseTimeType,
+            activeEnergyType,
+            heartRateType
         ]
 
         do {
@@ -57,13 +63,17 @@ class HealthService: ObservableObject {
         async let steps = fetchSteps(from: startOfDay, to: now)
         async let distance = fetchDistance(from: startOfDay, to: now)
         async let minutes = fetchExerciseMinutes(from: startOfDay, to: now)
+        async let activeCalories = fetchActiveCalories(from: startOfDay, to: now)
+        async let heartRate = fetchAverageHeartRate(from: startOfDay, to: now)
 
-        let (stepsValue, distanceValue, minutesValue) = await (steps, distance, minutes)
+        let (stepsValue, distanceValue, minutesValue, caloriesValue, heartRateValue) = await (steps, distance, minutes, activeCalories, heartRate)
 
         await MainActor.run {
             self.todaySteps = stepsValue
             self.todayDistance = distanceValue
             self.todayMinutesMoved = minutesValue
+            self.todayActiveCalories = caloriesValue
+            self.todayAverageHeartRate = heartRateValue
         }
     }
 
@@ -163,6 +173,46 @@ class HealthService: ObservableObject {
         }
     }
 
+    private func fetchActiveCalories(from startDate: Date, to endDate: Date) async -> Double {
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: activeEnergyType,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, result, error in
+                guard let result = result, let sum = result.sumQuantity() else {
+                    continuation.resume(returning: 0.0)
+                    return
+                }
+                let calories = sum.doubleValue(for: HKUnit.kilocalorie())
+                continuation.resume(returning: calories)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func fetchAverageHeartRate(from startDate: Date, to endDate: Date) async -> Int? {
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: heartRateType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, result, error in
+                guard let result = result, let average = result.averageQuantity() else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let bpm = Int(average.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute())))
+                continuation.resume(returning: bpm)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     // MARK: - Mock Data (for development/testing)
     func useMockHealthData(stepGoal: Int = 8000) {
         // Today's steps - fixed value that doesn't change when goal changes
@@ -170,6 +220,8 @@ class HealthService: ObservableObject {
         todaySteps = 4480 // Fixed at ~56% of default 8000 goal
         todayDistance = 2.1
         todayMinutesMoved = 35
+        todayActiveCalories = 215.0 // Realistic for this activity level
+        todayAverageHeartRate = 105 // Average walking heart rate
         hasHealthAccess = true
 
         let calendar = Calendar.current

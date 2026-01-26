@@ -14,7 +14,7 @@ struct ActivityStatsCard: View {
     let stepGoal: Int
     let averagePace: Double? // min/mile
     let averageHeartRate: Int? // bpm
-    let walkingSteadiness: Double? // percentage (0-1)
+    let activeCalories: Double // kcal
 
     @State private var isExpanded = false
 
@@ -154,19 +154,19 @@ struct ActivityStatsCard: View {
                     Divider()
                         .frame(height: 50)
 
-                    if let steadiness = walkingSteadiness {
+                    if activeCalories > 0 {
                         StatItem(
-                            icon: "waveform.path.ecg",
-                            value: "\(Int(steadiness * 100))%",
-                            label: "Steadiness",
-                            color: .green
+                            icon: "flame.fill",
+                            value: "\(Int(activeCalories))",
+                            label: "Calories",
+                            color: .orange
                         )
                     } else {
                         StatItem(
-                            icon: "waveform.path.ecg",
+                            icon: "flame.fill",
                             value: "--",
-                            label: "Steadiness",
-                            color: .green.opacity(0.5)
+                            label: "Calories",
+                            color: .orange.opacity(0.5)
                         )
                     }
                 }
@@ -212,7 +212,7 @@ struct StatItem: View {
         stepGoal: 8000,
         averagePace: 18.5,
         averageHeartRate: 112,
-        walkingSteadiness: 0.87
+        activeCalories: 245
     )
     .padding()
     .background(Color.primaryBackground)
