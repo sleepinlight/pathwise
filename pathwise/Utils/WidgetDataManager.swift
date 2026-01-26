@@ -34,7 +34,12 @@ class PathwiseWidgetDataManager {
     private let widgetDataKey = "pathwise.widget.data"
 
     private var sharedDefaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupIdentifier)
+        guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
+            print("❌ Failed to create UserDefaults suite for: \(appGroupIdentifier)")
+            return nil
+        }
+        print("✅ Successfully created UserDefaults suite for: \(appGroupIdentifier)")
+        return defaults
     }
 
     private init() {}
@@ -52,7 +57,7 @@ class PathwiseWidgetDataManager {
             encoder.dateEncodingStrategy = .iso8601
             let encodedData = try encoder.encode(data)
             defaults.set(encodedData, forKey: widgetDataKey)
-            defaults.synchronize()
+            // Note: synchronize() is deprecated and unnecessary - UserDefaults auto-saves
 
             // Tell widgets to reload their timelines
             WidgetCenter.shared.reloadAllTimelines()
@@ -89,7 +94,6 @@ class PathwiseWidgetDataManager {
     func clearPathwiseWidgetData() {
         guard let defaults = sharedDefaults else { return }
         defaults.removeObject(forKey: widgetDataKey)
-        defaults.synchronize()
         WidgetCenter.shared.reloadAllTimelines()
         print("🗑️ Widget data cleared")
     }

@@ -20,252 +20,295 @@ struct SettingsView: View {
     private var isDarkMode: Bool {
         colorScheme == .dark
     }
+    
+    @ViewBuilder
+    private var developerFooterText: some View {
+        let color = Color.orange.opacity(0.7)
+        Text("Test different window scenarios. This menu is for development only.")
+            .foregroundColor(color)
+    }
+    
+    @ViewBuilder
+    private var walkingPreferencesSection: some View {
+        Section {
+            HStack {
+                Text("Walk Duration")
+                Spacer()
+                Picker("", selection: $viewModel.walkDuration) {
+                    ForEach([15, 20, 25, 30, 45, 60], id: \.self) { minutes in
+                        Text("\(minutes) min").tag(minutes)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .listRowBackground(Color.cardBackground)
+
+            HStack {
+                Text("Daily Step Goal")
+                Spacer()
+                Picker("", selection: $viewModel.stepGoal) {
+                    ForEach([5000, 8000, 10000, 12000, 15000], id: \.self) { steps in
+                        Text("\(steps)").tag(steps)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .listRowBackground(Color.cardBackground)
+        } header: {
+            Text("Walking Preferences")
+        } footer: {
+            Text("Adjust your preferred walk duration and daily step goal")
+        }
+    }
+
+    @ViewBuilder
+    private var walkingHoursSection: some View {
+        Section {
+            DatePicker("Start Time", selection: $viewModel.walkStartTime, displayedComponents: .hourAndMinute)
+                .listRowBackground(Color.cardBackground)
+
+            DatePicker("End Time", selection: $viewModel.walkEndTime, displayedComponents: .hourAndMinute)
+                .listRowBackground(Color.cardBackground)
+        } header: {
+            Text("Preferred Walking Hours")
+        } footer: {
+            Text("Only suggest walks within this time range")
+        }
+    }
+
+    @ViewBuilder
+    private var temperatureSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Ideal Temperature Range")
+                    .font(.pathwiseBody)
+
+                HStack {
+                    Text("\(Int(viewModel.idealTempMin))°F")
+                        .font(.pathwiseCaption)
+                        .frame(width: 50, alignment: .leading)
+
+                    VStack(spacing: 4) {
+                        RangeSlider(
+                            minValue: $viewModel.idealTempMin,
+                            maxValue: $viewModel.idealTempMax,
+                            bounds: 30...100
+                        )
+
+                        HStack {
+                            Text("30°F")
+                                .font(.pathwiseCaption)
+                                .foregroundColor(.primaryText.opacity(0.5))
+                            Spacer()
+                            Text("100°F")
+                                .font(.pathwiseCaption)
+                                .foregroundColor(.primaryText.opacity(0.5))
+                        }
+                    }
+
+                    let minPosition = CGFloat((viewModel.idealTempMin - 30) / 70) * 1.0 // dummy default
+                    let maxPosition = CGFloat((viewModel.idealTempMax - 30) / 70) * 1.0 // dummy default
+
+                    // replaced below with constants from RangeSlider geometry
+                    // but since these are values inside RangeSlider, no change here
+
+                    // So no change here in temperatureSection directly, the change is inside RangeSlider View below
+                }
+            }
+            .padding(.vertical, Spacing.xs)
+            .listRowBackground(Color.cardBackground)
+        } header: {
+            Text("Comfort Zone")
+        } footer: {
+            Text("Your preferred temperature range for walking")
+        }
+    }
+
+    @ViewBuilder
+    private var appearanceSection: some View {
+        Section {
+            Picker("Appearance", selection: $viewModel.theme) {
+                ForEach(AppTheme.allCases, id: \.self) { theme in
+                    Text(theme.rawValue).tag(theme)
+                }
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.cardBackground)
+
+            if viewModel.theme == .dark || (viewModel.theme == .system && isDarkMode) {
+                Picker("Dark Mode Style", selection: $viewModel.darkModeStyle) {
+                    ForEach(DarkModeStyle.allCases, id: \.self) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .listRowBackground(Color.cardBackground)
+            }
+        } header: {
+            Text("Appearance")
+        } footer: {
+            if viewModel.theme == .dark || (viewModel.theme == .system && isDarkMode) {
+                let message = "Choose between light, dark, or system theme. Default uses deep blue, Black uses pure black."
+                Text(message)
+            } else {
+                Text("Choose between light, dark, or system theme")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var developerSection: some View {
+        if devSettings.isEnabled {
+            Section {
+                Toggle("Enable Dev Menu", isOn: $devSettings.isEnabled)
+                    .foregroundColor(.orange)
+                    .listRowBackground(Color.cardBackground)
+
+                Toggle("Enable Mocks", isOn: $devSettings.enableMocks)
+                    .listRowBackground(Color.cardBackground)
+
+                Picker("Mock Scenario", selection: $devSettings.currentScenario) {
+                    ForEach(MockScenario.allCases) { scenario in
+                        Text(scenario.rawValue).tag(scenario)
+                    }
+                }
+                .disabled(!devSettings.enableMocks)
+                .listRowBackground(Color.cardBackground)
+
+                Text("Triple-tap version number to toggle dev menu")
+                    .font(.pathwiseCaption)
+                    .foregroundColor(.primaryText.opacity(0.5))
+                    .listRowBackground(Color.cardBackground)
+            } header: {
+                HStack {
+                    Image(systemName: "hammer.fill")
+                    Text("Developer")
+                }
+                .foregroundStyle(Color.orange)
+            } footer: {
+                developerFooterText
+            }
+        }
+    }
+    
+    private func handleVersionTap() {
+        versionTapCount += 1
+        if versionTapCount >= 3 {
+            devSettings.toggleDevMenu()
+            versionTapCount = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            versionTapCount = 0
+        }
+    }
 
     var body: some View {
         NavigationView {
-            List {
-                // Walking Preferences
-                Section {
-                    HStack {
-                        Text("Walk Duration")
-                        Spacer()
-                        Picker("", selection: $viewModel.walkDuration) {
-                            ForEach([15, 20, 25, 30, 45, 60], id: \.self) { minutes in
-                                Text("\(minutes) min").tag(minutes)
-                            }
+            settingsList
+                .navigationTitle("Settings")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            dismiss()
                         }
-                        .pickerStyle(.menu)
-                    }
-                    .listRowBackground(Color.cardBackground)
-
-                    HStack {
-                        Text("Daily Step Goal")
-                        Spacer()
-                        Picker("", selection: $viewModel.stepGoal) {
-                            ForEach([5000, 8000, 10000, 12000, 15000], id: \.self) { steps in
-                                Text("\(steps)").tag(steps)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                    .listRowBackground(Color.cardBackground)
-                } header: {
-                    Text("Walking Preferences")
-                } footer: {
-                    Text("Adjust your preferred walk duration and daily step goal")
-                }
-
-                // Walking Hours
-                Section {
-                    DatePicker("Start Time", selection: $viewModel.walkStartTime, displayedComponents: .hourAndMinute)
-                        .listRowBackground(Color.cardBackground)
-
-                    DatePicker("End Time", selection: $viewModel.walkEndTime, displayedComponents: .hourAndMinute)
-                        .listRowBackground(Color.cardBackground)
-                } header: {
-                    Text("Preferred Walking Hours")
-                } footer: {
-                    Text("Only suggest walks within this time range")
-                }
-
-                // Temperature Preferences
-                Section {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Ideal Temperature Range")
-                            .font(.pathwiseBody)
-
-                        HStack {
-                            Text("\(Int(viewModel.idealTempMin))°F")
-                                .font(.pathwiseCaption)
-                                .frame(width: 50, alignment: .leading)
-
-                            VStack(spacing: 4) {
-                                RangeSlider(
-                                    minValue: $viewModel.idealTempMin,
-                                    maxValue: $viewModel.idealTempMax,
-                                    bounds: 30...100
-                                )
-
-                                HStack {
-                                    Text("30°F")
-                                        .font(.pathwiseCaption)
-                                        .foregroundColor(.primaryText.opacity(0.5))
-                                    Spacer()
-                                    Text("100°F")
-                                        .font(.pathwiseCaption)
-                                        .foregroundColor(.primaryText.opacity(0.5))
-                                }
-                            }
-
-                            Text("\(Int(viewModel.idealTempMax))°F")
-                                .font(.pathwiseCaption)
-                                .frame(width: 50, alignment: .trailing)
-                        }
-                    }
-                    .padding(.vertical, Spacing.xs)
-                    .listRowBackground(Color.cardBackground)
-                } header: {
-                    Text("Comfort Zone")
-                } footer: {
-                    Text("Your preferred temperature range for walking")
-                }
-
-                // Theme Preferences
-                Section {
-                    Picker("Appearance", selection: $viewModel.theme) {
-                        ForEach(AppTheme.allCases, id: \.self) { theme in
-                            Text(theme.rawValue).tag(theme)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.cardBackground)
-
-                    if viewModel.theme == .dark || (viewModel.theme == .system && isDarkMode) {
-                        Picker("Dark Mode Style", selection: $viewModel.darkModeStyle) {
-                            ForEach(DarkModeStyle.allCases, id: \.self) { style in
-                                Text(style.rawValue).tag(style)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .listRowBackground(Color.cardBackground)
-                    }
-                } header: {
-                    Text("Appearance")
-                } footer: {
-                    if viewModel.theme == .dark || (viewModel.theme == .system && isDarkMode) {
-                        Text("Choose between light, dark, or system theme. Default uses deep blue, Black uses pure black.")
-                    } else {
-                        Text("Choose between light, dark, or system theme")
+                        .font(.pathwiseSubheadline)
+                        .foregroundColor(.accent)
                     }
                 }
-
-                // Notification Preferences
-                Section {
-                    Toggle("Daily Nudge", isOn: $viewModel.notificationsEnabled)
-                        .listRowBackground(Color.cardBackground)
-
-                    if viewModel.notificationsEnabled {
-                        DatePicker(
-                            "Notification Time",
-                            selection: $viewModel.notificationTime,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .listRowBackground(Color.cardBackground)
-
-                        Toggle("Window Reminder", isOn: $viewModel.windowReminderEnabled)
-                            .disabled(!viewModel.notificationsEnabled)
-                            .listRowBackground(Color.cardBackground)
-                    }
-                } header: {
-                    Text("Notifications")
-                } footer: {
-                    Text("Get daily reminders about your Golden Window")
+                .onChange(of: viewModel.walkDuration) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.stepGoal) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.walkStartTime) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.walkEndTime) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.idealTempMin) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.idealTempMax) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.theme) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.darkModeStyle) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.notificationsEnabled) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.notificationTime) { _, _ in viewModel.savePreferences() }
+                .onChange(of: viewModel.windowReminderEnabled) { _, _ in viewModel.savePreferences() }
+                .onChange(of: devSettings.currentScenario) { _, _ in
+                    // Trigger refresh when dev scenario changes
+                    NotificationCenter.default.post(name: .devScenarioChanged, object: nil)
                 }
-
-                // About
-                Section {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.primaryText.opacity(0.5))
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        versionTapCount += 1
-                        if versionTapCount >= 3 {
-                            devSettings.toggleDevMenu()
-                            versionTapCount = 0
-                        }
-                        // Reset counter after 2 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            versionTapCount = 0
-                        }
-                    }
-                    .listRowBackground(Color.cardBackground)
-
-                    Button("Reset Onboarding") {
-                        showingResetAlert = true
-                    }
-                    .foregroundColor(.red)
-                    .listRowBackground(Color.cardBackground)
-                } header: {
-                    Text("About")
+                .onChange(of: devSettings.enableMocks) { _, _ in
+                    NotificationCenter.default.post(name: .devMocksToggled, object: nil)
                 }
-
-                // Developer Menu (hidden unless enabled)
-                if devSettings.isEnabled {
-                    Section {
-                        Toggle("Enable Dev Menu", isOn: $devSettings.isEnabled)
-                            .foregroundColor(.orange)
-                            .listRowBackground(Color.cardBackground)
-
-                        Picker("Mock Scenario", selection: $devSettings.currentScenario) {
-                            ForEach(MockScenario.allCases) { scenario in
-                                Text(scenario.rawValue).tag(scenario)
-                            }
-                        }
-                        .listRowBackground(Color.cardBackground)
-
-                        Text("Triple-tap version number to toggle dev menu")
-                            .font(.pathwiseCaption)
-                            .foregroundColor(.primaryText.opacity(0.5))
-                            .listRowBackground(Color.cardBackground)
-                    } header: {
-                        HStack {
-                            Image(systemName: "hammer.fill")
-                                .foregroundColor(.orange)
-                            Text("Developer")
-                                .foregroundColor(.orange)
-                        }
-                    } footer: {
-                        Text("Test different window scenarios. This menu is for development only.")
-                            .foregroundColor(.orange.opacity(0.7))
-                    }
-                }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                .alert("Reset Onboarding", isPresented: $showingResetAlert) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Reset", role: .destructive) {
+                        viewModel.resetOnboarding()
                         dismiss()
                     }
-                    .font(.pathwiseSubheadline)
-                    .foregroundColor(.accent)
+                } message: {
+                    Text("This will show the onboarding screens again when you relaunch the app.")
                 }
-            }
-            .onChange(of: viewModel.walkDuration) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.stepGoal) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.walkStartTime) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.walkEndTime) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.idealTempMin) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.idealTempMax) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.theme) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.darkModeStyle) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.notificationsEnabled) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.notificationTime) { _, _ in viewModel.savePreferences() }
-            .onChange(of: viewModel.windowReminderEnabled) { _, _ in viewModel.savePreferences() }
-            .onChange(of: devSettings.currentScenario) { _, _ in
-                // Trigger refresh when dev scenario changes
-                NotificationCenter.default.post(name: .devScenarioChanged, object: nil)
-            }
-            .alert("Reset Onboarding", isPresented: $showingResetAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Reset", role: .destructive) {
-                    viewModel.resetOnboarding()
-                    dismiss()
-                }
-            } message: {
-                Text("This will show the onboarding screens again when you relaunch the app.")
-            }
-            .scrollContentBackground(.hidden)
-            .background(Color.primaryBackground)
         }
         .preferredColorScheme(themeManager.colorScheme)
         .onReceive(NotificationCenter.default.publisher(for: .themeDidChange)) { _ in
             themeManager.updateTheme()
         }
+    }
+
+    @ViewBuilder
+    private var settingsList: some View {
+        List {
+            walkingPreferencesSection
+
+            walkingHoursSection
+
+            temperatureSection
+
+            appearanceSection
+
+            // Notification Preferences
+            Section {
+                Toggle("Daily Nudge", isOn: $viewModel.notificationsEnabled)
+                    .listRowBackground(Color.cardBackground)
+
+                if viewModel.notificationsEnabled {
+                    DatePicker(
+                        "Notification Time",
+                        selection: $viewModel.notificationTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .listRowBackground(Color.cardBackground)
+
+                    Toggle("Window Reminder", isOn: $viewModel.windowReminderEnabled)
+                        .disabled(!viewModel.notificationsEnabled)
+                        .listRowBackground(Color.cardBackground)
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("Get daily reminders about your Golden Window")
+            }
+
+            // About
+            Section {
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text("1.0.0")
+                        .foregroundColor(.primaryText.opacity(0.5))
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(perform: handleVersionTap)
+                .listRowBackground(Color.cardBackground)
+
+                Button("Reset Onboarding") {
+                    showingResetAlert = true
+                }
+                .foregroundColor(.red)
+                .listRowBackground(Color.cardBackground)
+            } header: {
+                Text("About")
+            }
+
+            developerSection
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color.primaryBackground)
     }
 }
 
@@ -309,13 +352,13 @@ struct RangeSlider: View {
                 Circle()
                     .fill(Color.accent)
                     .frame(width: 20, height: 20)
-                    .offset(x: sliderWidth * CGFloat((minValue - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound)) - 10)
+                    .offset(x: minPosition - 10)
 
                 // Max thumb
                 Circle()
                     .fill(Color.accent)
                     .frame(width: 20, height: 20)
-                    .offset(x: sliderWidth * CGFloat((maxValue - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound)) - 10)
+                    .offset(x: maxPosition - 10)
             }
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -426,3 +469,4 @@ class SettingsViewModel: ObservableObject {
 #Preview {
     SettingsView()
 }
+

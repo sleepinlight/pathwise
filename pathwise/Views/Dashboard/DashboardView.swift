@@ -30,7 +30,12 @@ struct DashboardView: View {
                         fallbackWindow: viewModel.fallbackWindow,
                         splitWalkSuggestion: viewModel.splitWalkSuggestion,
                         noWindowReason: viewModel.noWindowReason,
-                        isInGoldenWindow: viewModel.isInGoldenWindow
+                        isInGoldenWindow: viewModel.isInGoldenWindow,
+                        activeWeatherAlerts: viewModel.activeWeatherAlerts,
+                        isCalendarBlocking: viewModel.isCalendarBlocking,
+                        onShowMeAnyway: {
+                            viewModel.handleShowMeAnyway()
+                        }
                     )
                     .padding(.horizontal, Spacing.lg)
 
@@ -42,13 +47,20 @@ struct DashboardView: View {
                         stepGoal: viewModel.preferences.dailyStepGoal,
                         averagePace: viewModel.averagePace,
                         averageHeartRate: viewModel.averageHeartRate,
-                        walkingSteadiness: viewModel.walkingSteadiness
+                        activeCalories: viewModel.activeCalories
                     )
                     .padding(.horizontal, Spacing.lg)
 
                     // Weekly Chart
                     if !viewModel.weeklyActivities.isEmpty {
                         WeeklyActivityChart(
+                            weeklyActivities: viewModel.weeklyActivities,
+                            stepGoal: viewModel.preferences.dailyStepGoal
+                        )
+                        .padding(.horizontal, Spacing.lg)
+
+                        // Trends Card
+                        TrendsCard(
                             weeklyActivities: viewModel.weeklyActivities,
                             stepGoal: viewModel.preferences.dailyStepGoal
                         )

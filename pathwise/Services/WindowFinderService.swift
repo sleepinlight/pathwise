@@ -32,6 +32,8 @@ struct WindowResult {
     let splitWalkSuggestion: SplitWalkSuggestion?  // Suggestion to split walk into multiple sessions
     let noWindowReason: NoWindowReason? // Why there are no windows
     let isInGoldenWindow: Bool  // Is the current time within a golden window?
+    let activeWeatherAlerts: [WeatherAlert]  // Active severe weather alerts
+    let calendarWasConsidered: Bool  // Whether calendar was factored into the result
 
     var hasGoldenWindows: Bool {
         !goldenWindows.isEmpty
@@ -43,6 +45,17 @@ struct WindowResult {
 
     var hasSplitSuggestion: Bool {
         splitWalkSuggestion != nil
+    }
+
+    var hasSevereWeatherAlerts: Bool {
+        !activeWeatherAlerts.isEmpty
+    }
+
+    var isCalendarBlocking: Bool {
+        // Calendar is blocking if there's no window AND the reason is calendar-related
+        guard !hasGoldenWindows && !hasFallback else { return false }
+        guard let reason = noWindowReason else { return false }
+        return reason == .noFreeTime || reason == .scheduleTooTight
     }
 }
 
@@ -76,31 +89,77 @@ class WindowFinderService {
     func findAllWindows(
         freeBlocks: [FreeTimeBlock],
         weatherForecast: [HourlyWeather],
+        activeWeatherAlerts: [WeatherAlert] = [],
+        ignoreCalendar: Bool = false,
         lookAheadHours: Int = 12
     ) -> WindowResult {
         let now = Date()
         let endTime = Calendar.current.date(byAdding: .hour, value: lookAheadHours, to: now)!
 
         // Step 1: Find all potential windows
+        // If ignoring calendar, create synthetic free blocks for the entire period
+        let blocksToConsider: [FreeTimeBlock]
+        if ignoreCalendar {
+            // Create hourly blocks for the entire look-ahead period
+            var syntheticBlocks: [FreeTimeBlock] = []
+            var currentTime = now
+            while currentTime < endTime {
+                let blockEnd = Calendar.current.date(byAdding: .hour, value: 1, to: currentTime)!
+                syntheticBlocks.append(FreeTimeBlock(startTime: currentTime, endTime: blockEnd))
+                currentTime = blockEnd
+            }
+            blocksToConsider = syntheticBlocks
+        } else {
+            blocksToConsider = freeBlocks
+        }
+
         let potentialWindows = findPotentialWindows(
-            freeBlocks: freeBlocks,
+            freeBlocks: blocksToConsider,
             startTime: now,
             endTime: endTime
         )
 
-        // Check if there are no free blocks at all
+        // Check if there are no free blocks at all (calendar-based issue)
         if potentialWindows.isEmpty {
-            let reason: NoWindowReason = freeBlocks.isEmpty ? .noFreeTime : .scheduleTooTight
+            // IMPORTANT: Before blaming the calendar, check if weather is the real issue
+            // If ALL free blocks have extreme weather, we should report weather as the reason
+            let allBlocksHaveExtremeWeather = !blocksToConsider.isEmpty && blocksToConsider.allSatisfy { block in
+                guard let weather = findWeatherForTime(block.startTime, forecast: weatherForecast) else {
+                    return false
+                }
+                return isWeatherExtreme(weather)
+            }
+
+            let allBlocksHavePoorWeather = !blocksToConsider.isEmpty && blocksToConsider.allSatisfy { block in
+                guard let weather = findWeatherForTime(block.startTime, forecast: weatherForecast) else {
+                    return false
+                }
+                return isWeatherExtreme(weather) || isWeatherPoor(weather)
+            }
+
+            // Determine the actual reason
+            let reason: NoWindowReason
+            if allBlocksHaveExtremeWeather {
+                reason = .unsafeWeather
+            } else if allBlocksHavePoorWeather {
+                reason = .poorWeather
+            } else if freeBlocks.isEmpty && !ignoreCalendar {
+                reason = .noFreeTime
+            } else {
+                reason = .scheduleTooTight
+            }
 
             // Before giving up, check if we can suggest splitting the walk
-            let splitSuggestion = findSplitWalkSuggestion(freeBlocks: freeBlocks, weatherForecast: weatherForecast)
+            let splitSuggestion = findSplitWalkSuggestion(freeBlocks: blocksToConsider, weatherForecast: weatherForecast)
 
             return WindowResult(
                 goldenWindows: [],
                 fallbackWindow: nil,
                 splitWalkSuggestion: splitSuggestion,
                 noWindowReason: reason,
-                isInGoldenWindow: false
+                isInGoldenWindow: false,
+                activeWeatherAlerts: activeWeatherAlerts.filter { $0.isActive },
+                calendarWasConsidered: !ignoreCalendar
             )
         }
 
@@ -176,7 +235,9 @@ class WindowFinderService {
             fallbackWindow: fallbackWindow,
             splitWalkSuggestion: splitSuggestion,
             noWindowReason: noWindowReason,
-            isInGoldenWindow: isInGoldenWindow
+            isInGoldenWindow: isInGoldenWindow,
+            activeWeatherAlerts: activeWeatherAlerts.filter { $0.isActive },
+            calendarWasConsidered: !ignoreCalendar
         )
     }
 
@@ -383,9 +444,11 @@ class WindowFinderService {
 
             if !preferences.isTemperatureIdeal(weather.temperature) {
                 if weather.temperature < preferences.idealTemperatureMin {
-                    reasons.append("a bit chilly at \(temp)°F")
+                    let tempDescription = getTemperatureDescription(temp, isCold: true)
+                    reasons.append("\(tempDescription) at \(temp)°F")
                 } else {
-                    reasons.append("a bit warm at \(temp)°F")
+                    let tempDescription = getTemperatureDescription(temp, isCold: false)
+                    reasons.append("\(tempDescription) at \(temp)°F")
                 }
             }
 
@@ -497,6 +560,39 @@ class WindowFinderService {
         }
 
         return nil
+    }
+
+    /// Generates contextually appropriate temperature descriptions
+    private func getTemperatureDescription(_ temp: Int, isCold: Bool) -> String {
+        if isCold {
+            // Cold temperature descriptions
+            switch temp {
+            case ..<0:
+                return "dangerously cold"
+            case 0..<20:
+                return "quite cold"
+            case 20..<35:
+                return "chilly"
+            case 35..<50:
+                return "a bit chilly"
+            default:
+                return "cool"
+            }
+        } else {
+            // Hot temperature descriptions
+            switch temp {
+            case 95...:
+                return "dangerously hot"
+            case 85..<95:
+                return "quite hot"
+            case 78..<85:
+                return "a bit warm"
+            case 70..<78:
+                return "slightly warm"
+            default:
+                return "warm"
+            }
+        }
     }
 
     // MARK: - Supporting Types

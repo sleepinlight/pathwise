@@ -81,3 +81,56 @@ struct DailyWeatherForecast: Codable {
     let date: Date
     let hourlyForecasts: [HourlyWeather]
 }
+
+// MARK: - Severe Weather Alerts
+
+enum WeatherAlertSeverity: String, Codable {
+    case extreme = "Extreme"
+    case severe = "Severe"
+    case moderate = "Moderate"
+    case minor = "Minor"
+}
+
+struct WeatherAlert: Identifiable, Codable {
+    let id = UUID()
+    let event: String // e.g., "Severe Thunderstorm Warning", "Winter Storm Warning"
+    let headline: String // Brief description
+    let severity: WeatherAlertSeverity
+    let startTime: Date
+    let endTime: Date
+
+    enum CodingKeys: String, CodingKey {
+        case event, headline, severity, startTime, endTime
+    }
+
+    var iconName: String {
+        switch severity {
+        case .extreme:
+            return "exclamationmark.triangle.fill"
+        case .severe:
+            return "exclamationmark.octagon.fill"
+        case .moderate:
+            return "exclamationmark.circle.fill"
+        case .minor:
+            return "info.circle.fill"
+        }
+    }
+
+    var color: String {
+        switch severity {
+        case .extreme:
+            return "red"
+        case .severe:
+            return "orange"
+        case .moderate:
+            return "yellow"
+        case .minor:
+            return "blue"
+        }
+    }
+
+    var isActive: Bool {
+        let now = Date()
+        return now >= startTime && now <= endTime
+    }
+}

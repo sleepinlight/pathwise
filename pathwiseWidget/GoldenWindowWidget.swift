@@ -27,14 +27,15 @@ struct GoldenWindowEntry: TimelineEntry {
 
 struct GoldenWindowProvider: TimelineProvider {
     func placeholder(in context: Context) -> GoldenWindowEntry {
-        GoldenWindowEntry(
+        let preferences = UserPreferences()
+        return GoldenWindowEntry(
             date: Date(),
             goldenWindow: createSampleWindow(),
             additionalWindows: [],
             fallbackWindow: nil,
             noWindowReason: nil,
             todaySteps: 3500,
-            stepGoal: 8000,
+            stepGoal: preferences.dailyStepGoal,
             isInGoldenWindow: false,
             theme: .system,
             darkModeStyle: .default
@@ -42,6 +43,7 @@ struct GoldenWindowProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (GoldenWindowEntry) -> Void) {
+        let preferences = UserPreferences()
         let entry = GoldenWindowEntry(
             date: Date(),
             goldenWindow: createSampleWindow(),
@@ -49,7 +51,7 @@ struct GoldenWindowProvider: TimelineProvider {
             fallbackWindow: nil,
             noWindowReason: nil,
             todaySteps: 3500,
-            stepGoal: 8000,
+            stepGoal: preferences.dailyStepGoal,
             isInGoldenWindow: false,
             theme: .system,
             darkModeStyle: .default
@@ -81,6 +83,7 @@ struct GoldenWindowProvider: TimelineProvider {
         } else {
             // Fallback to sample data if no shared data available
             let window = createSampleWindow()
+            let preferences = UserPreferences()
             entry = GoldenWindowEntry(
                 date: currentDate,
                 goldenWindow: window,
@@ -88,7 +91,7 @@ struct GoldenWindowProvider: TimelineProvider {
                 fallbackWindow: nil,
                 noWindowReason: nil,
                 todaySteps: 3500,
-                stepGoal: 8000,
+                stepGoal: preferences.dailyStepGoal,
                 isInGoldenWindow: false,
                 theme: .system,
                 darkModeStyle: .default
@@ -706,7 +709,7 @@ struct GoldenWindowWidgetEntryView: View {
         fallbackWindow: nil,
         noWindowReason: nil,
         todaySteps: 3500,
-        stepGoal: 8000,
+        stepGoal: UserPreferences().dailyStepGoal,
         isInGoldenWindow: false,
         theme: .system,
         darkModeStyle: .default
@@ -736,7 +739,7 @@ struct GoldenWindowWidgetEntryView: View {
         fallbackWindow: nil,
         noWindowReason: nil,
         todaySteps: 5432,
-        stepGoal: 8000,
+        stepGoal: UserPreferences().dailyStepGoal,
         isInGoldenWindow: false,
         theme: .system,
         darkModeStyle: .default
