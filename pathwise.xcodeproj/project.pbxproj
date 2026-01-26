@@ -49,7 +49,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				Scripts/GenerateAppIcons.swift,
 			);
 			target = 7BD946902F2387E400B44241 /* pathwise */;
 		};

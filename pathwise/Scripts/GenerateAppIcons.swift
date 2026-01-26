@@ -73,11 +73,13 @@ private func generateIcons() {
     }
 }
 
-// Kick off generation synchronously on the main actor
-Task { @MainActor in
-    generateIcons()
-    exit(EXIT_SUCCESS)
-}
+// Note: This file is a standalone script and should NOT be included in the app target.
+// To run this script, execute it separately with: swift GenerateAppIcons.swift
+// If you see build errors, remove this file from the target membership in Xcode.
 
-// Keep the script running until the task exits
-RunLoop.main.run()
+// The following code is commented out to prevent build errors when included in the app target:
+// Task { @MainActor in
+//     generateIcons()
+//     exit(EXIT_SUCCESS)
+// }
+// RunLoop.main.run()
