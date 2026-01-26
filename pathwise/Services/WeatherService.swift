@@ -101,9 +101,12 @@ class WeatherService: ObservableObject {
     private func convertToHourlyWeather(_ weatherKitHour: HourWeather) -> HourlyWeather {
         let condition = mapWeatherKitCondition(weatherKitHour.condition)
 
+        // WeatherKit returns temperature in Celsius, convert to Fahrenheit
+        let tempFahrenheit = weatherKitHour.temperature.converted(to: .fahrenheit).value
+
         return HourlyWeather(
             time: weatherKitHour.date,
-            temperature: weatherKitHour.temperature.value, // Convert to Fahrenheit if needed
+            temperature: tempFahrenheit,
             precipitationProbability: weatherKitHour.precipitationChance,
             uvIndex: weatherKitHour.uvIndex.value,
             weatherCondition: condition

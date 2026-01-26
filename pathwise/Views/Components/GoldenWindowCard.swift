@@ -323,6 +323,13 @@ struct GoldenWindowCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.secondaryAccent.opacity(0.1))
                     .cornerRadius(CornerRadius.sm)
+
+                    // Add contextual description for weather issues
+                    Text(descriptionForNoWindowReason(reason))
+                        .font(.pathwiseBody)
+                        .foregroundColor(.primaryText.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                        .padding(.top, Spacing.xs)
                 } else {
                     Text(reason.rawValue)
                         .font(.pathwiseBody)
@@ -412,6 +419,22 @@ struct GoldenWindowCard: View {
             return .yellow
         case .minor:
             return .blue
+        }
+    }
+
+    // Helper to get contextual description for no-window reason
+    private func descriptionForNoWindowReason(_ reason: NoWindowReason) -> String {
+        switch reason {
+        case .noFreeTime:
+            return "Your calendar is fully booked today. Try clearing some time or check back tomorrow."
+        case .unsafeWeather:
+            return "The weather today is too dangerous for outdoor activity. Stay safe indoors."
+        case .poorWeather:
+            return "Weather conditions aren't ideal for walking today. Consider indoor alternatives."
+        case .scheduleTooTight:
+            return "Your free time slots are too short for a walk. Try adjusting your calendar."
+        case .noWeatherData:
+            return "Unable to check weather conditions. Please try again in a few minutes."
         }
     }
 

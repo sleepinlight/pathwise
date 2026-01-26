@@ -444,9 +444,11 @@ class WindowFinderService {
 
             if !preferences.isTemperatureIdeal(weather.temperature) {
                 if weather.temperature < preferences.idealTemperatureMin {
-                    reasons.append("a bit chilly at \(temp)°F")
+                    let tempDescription = getTemperatureDescription(temp, isCold: true)
+                    reasons.append("\(tempDescription) at \(temp)°F")
                 } else {
-                    reasons.append("a bit warm at \(temp)°F")
+                    let tempDescription = getTemperatureDescription(temp, isCold: false)
+                    reasons.append("\(tempDescription) at \(temp)°F")
                 }
             }
 
@@ -558,6 +560,39 @@ class WindowFinderService {
         }
 
         return nil
+    }
+
+    /// Generates contextually appropriate temperature descriptions
+    private func getTemperatureDescription(_ temp: Int, isCold: Bool) -> String {
+        if isCold {
+            // Cold temperature descriptions
+            switch temp {
+            case ..<0:
+                return "dangerously cold"
+            case 0..<20:
+                return "quite cold"
+            case 20..<35:
+                return "chilly"
+            case 35..<50:
+                return "a bit chilly"
+            default:
+                return "cool"
+            }
+        } else {
+            // Hot temperature descriptions
+            switch temp {
+            case 95...:
+                return "dangerously hot"
+            case 85..<95:
+                return "quite hot"
+            case 78..<85:
+                return "a bit warm"
+            case 70..<78:
+                return "slightly warm"
+            default:
+                return "warm"
+            }
+        }
     }
 
     // MARK: - Supporting Types
