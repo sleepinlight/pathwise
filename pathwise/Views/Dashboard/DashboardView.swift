@@ -10,6 +10,7 @@ import SwiftUI
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var showingSettings = false
+    @AppStorage("dynamicBackgroundEnabled") private var dynamicBackgroundEnabled: Bool = true
 
     var body: some View {
         NavigationView {
@@ -71,7 +72,15 @@ struct DashboardView: View {
                 }
                 .padding(.bottom, Spacing.xl)
             }
-            .background(Color.primaryBackground.ignoresSafeArea())
+            .background(
+                Group {
+                    if dynamicBackgroundEnabled {
+                        DynamicBackgroundView()
+                    } else {
+                        Color.primaryBackground.ignoresSafeArea()
+                    }
+                }
+            )
             .navigationBarHidden(true)
             .refreshable {
                 await viewModel.refresh()
@@ -101,6 +110,8 @@ struct DashboardView: View {
 }
 
 struct HeaderView: View {
+    @Environment(\.dynamicForegroundColor) private var dynamicForeground
+
     let greeting: String
     let isInGoldenWindow: Bool
     let onSettingsTap: () -> Void
@@ -111,11 +122,11 @@ struct HeaderView: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(greeting)
                         .font(.pathwiseTitle)
-                        .foregroundColor(.primaryText)
+                        .foregroundColor(dynamicForeground)
 
                     Text(isInGoldenWindow ? "It's a great time for a walk!" : "Find your perfect walking window")
                         .font(.pathwiseBody)
-                        .foregroundColor(.primaryText.opacity(0.6))
+                        .foregroundColor(dynamicForeground.opacity(0.6))
                 }
 
                 Spacer()
@@ -124,7 +135,7 @@ struct HeaderView: View {
                 Button(action: onSettingsTap) {
                     Image(systemName: "gearshape.fill")
                         .font(.title2)
-                        .foregroundColor(.accent)
+                        .foregroundColor(dynamicForeground)
                 }
             }
         }

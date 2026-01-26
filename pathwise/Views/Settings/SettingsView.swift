@@ -16,6 +16,7 @@ struct SettingsView: View {
     @StateObject private var devSettings = DeveloperSettings.shared
     @State private var showingResetAlert = false
     @State private var versionTapCount = 0
+    @AppStorage("dynamicBackgroundEnabled") private var dynamicBackgroundEnabled: Bool = true
 
     private var isDarkMode: Bool {
         colorScheme == .dark
@@ -174,6 +175,13 @@ struct SettingsView: View {
                 }
                 .disabled(!devSettings.enableMocks)
                 .listRowBackground(Color.cardBackground)
+                
+                Picker("Background Mock", selection: $devSettings.backgroundMock) {
+                    ForEach(BackgroundMock.allCases, id: \.self) { mock in
+                        Text(mock.rawValue).tag(mock)
+                    }
+                }
+                .listRowBackground(Color.cardBackground)
 
                 Text("Triple-tap version number to toggle dev menu")
                     .font(.pathwiseCaption)
@@ -260,6 +268,15 @@ struct SettingsView: View {
             temperatureSection
 
             appearanceSection
+
+            Section {
+                Toggle("Dynamic Background", isOn: $dynamicBackgroundEnabled)
+                    .listRowBackground(Color.cardBackground)
+            } header: {
+                Text("Background")
+            } footer: {
+                Text("Use time-of-day gradients inspired by sky colors. Turn off to use the current theme backgrounds.")
+            }
 
             // Notification Preferences
             Section {
