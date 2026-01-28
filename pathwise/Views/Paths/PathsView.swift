@@ -10,25 +10,52 @@ import MapKit
 
 struct PathsView: View {
     @StateObject private var viewModel = PathsViewModel()
+    @StateObject private var devSettings = DeveloperSettings.shared
+
+    // Observe manual route VM separately to catch its state changes
+    @ObservedObject private var manualRouteVM: ManualRouteViewModel
+
+    init() {
+        let vm = PathsViewModel()
+        _viewModel = StateObject(wrappedValue: vm)
+        _manualRouteVM = ObservedObject(wrappedValue: vm.manualRouteVM)
+    }
 
     var body: some View {
         NavigationView {
             ZStack {
-                // Map View
-                MapViewWithRoute(
-                    region: $viewModel.mapRegion,
-                    routeCoordinates: viewModel.generatedRoute?.coordinates ?? [],
-                    startCoordinate: routeAnnotations.first?.coordinate
-                )
-                .ignoresSafeArea()
+                // Map View - Use interactive version when drawing or showing manual route
+                if manualRouteVM.isDrawing || manualRouteVM.currentRoute != nil {
+                    InteractivePathMapView(
+                        region: $viewModel.mapRegion,
+                        routeCoordinates: manualRouteVM.currentRoute?.coordinates ?? [],
+                        drawnCoordinates: manualRouteVM.drawnCoordinates,
+                        startCoordinate: viewModel.locationManager.currentLocation,
+                        isDrawingMode: manualRouteVM.isDrawing,
+                        onDrawCoordinate: { coordinate in
+                            manualRouteVM.addDrawnCoordinate(coordinate)
+                        },
+                        onFinishDrawing: {
+                            manualRouteVM.snapToRoads()
+                        }
+                    )
+                    .ignoresSafeArea()
+                } else {
+                    PathwiseMapView(
+                        region: $viewModel.mapRegion,
+                        routeCoordinates: viewModel.generatedRoute?.coordinates ?? [],
+                        startCoordinate: routeAnnotations.first?.coordinate
+                    )
+                    .ignoresSafeArea()
+                }
 
                 // Controls Overlay
                 VStack {
                     Spacer()
 
                     VStack(spacing: Spacing.md) {
-                        // Distance Picker
-                        if viewModel.generatedRoute == nil {
+                        // Distance Picker (only shown if auto-generation is enabled)
+                        if devSettings.enableAutoRouteGeneration && viewModel.generatedRoute == nil {
                             VStack(spacing: Spacing.sm) {
                                 Text("Choose Distance")
                                     .font(.pathwiseCaption)
@@ -61,32 +88,72 @@ struct PathsView: View {
                             })
                         }
 
-                        // Generate Button / Loading State
-                        if viewModel.isGenerating {
-                            LoadingView()
-                        } else if viewModel.generatedRoute == nil {
-                            Button(action: {
-                                viewModel.generateRoute()
-                            }) {
-                                HStack(spacing: Spacing.sm) {
-                                    Image(systemName: "sparkles")
-                                        .font(.body)
-                                    Text("Find a Path")
-                                        .font(.pathwiseBody)
-                                        .fontWeight(.semibold)
+                        // Generate Button / Loading State (only shown if auto-generation is enabled)
+                        if devSettings.enableAutoRouteGeneration {
+                            if viewModel.isGenerating {
+                                LoadingView()
+                            } else if viewModel.generatedRoute == nil {
+                                Button(action: {
+                                    viewModel.generateRoute()
+                                }) {
+                                    HStack(spacing: Spacing.sm) {
+                                        Image(systemName: "sparkles")
+                                            .font(.body)
+                                        Text("Find a Path")
+                                            .font(.pathwiseBody)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, Spacing.md)
+                                    .background(
+                                        viewModel.locationManager.currentLocation != nil
+                                            ? Color.accent
+                                            : Color.primaryText.opacity(0.3)
+                                    )
+                                    .cornerRadius(CornerRadius.lg)
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.md)
-                                .background(
-                                    viewModel.locationManager.currentLocation != nil
-                                        ? Color.accent
-                                        : Color.primaryText.opacity(0.3)
-                                )
-                                .cornerRadius(CornerRadius.lg)
+                                .disabled(viewModel.locationManager.currentLocation == nil)
+                                .pathwiseCardShadow()
                             }
-                            .disabled(viewModel.locationManager.currentLocation == nil)
-                            .pathwiseCardShadow()
+                        }
+
+                        // Manual Route Drawing (when auto-generation is disabled)
+                        if !devSettings.enableAutoRouteGeneration {
+                            if let route = manualRouteVM.currentRoute {
+                                // Show completed route
+                                ManualRouteInfoCard(route: route, onClear: {
+                                    manualRouteVM.clearRoute()
+                                })
+                            } else if manualRouteVM.isDrawing {
+                                // Drawing mode UI
+                                ManualRouteDrawingCard(
+                                    isProcessing: manualRouteVM.isProcessing,
+                                    hasDrawnPath: !manualRouteVM.drawnCoordinates.isEmpty,
+                                    onCancel: {
+                                        manualRouteVM.clearRoute()
+                                    }
+                                )
+                            } else {
+                                // Start drawing button
+                                Button(action: {
+                                    manualRouteVM.startDrawing()
+                                }) {
+                                    HStack(spacing: Spacing.sm) {
+                                        Image(systemName: "scribble")
+                                            .font(.body)
+                                        Text("Draw Route")
+                                            .font(.pathwiseBody)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, Spacing.md)
+                                    .background(Color.accent)
+                                    .cornerRadius(CornerRadius.lg)
+                                }
+                                .pathwiseCardShadow()
+                            }
                         }
 
                         // Error Message
@@ -324,6 +391,126 @@ struct LoadingView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.md)
+        .background(Color.cardBackground)
+        .cornerRadius(CornerRadius.lg)
+        .pathwiseCardShadow()
+    }
+}
+
+// MARK: - Manual Route Drawing Card
+
+struct ManualRouteDrawingCard: View {
+    let isProcessing: Bool
+    let hasDrawnPath: Bool
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    if isProcessing {
+                        Text("Snapping to Roads...")
+                            .font(.pathwiseSubheadline)
+                            .foregroundColor(.primaryText)
+                    } else {
+                        Text("Drawing Route")
+                            .font(.pathwiseSubheadline)
+                            .foregroundColor(.primaryText)
+
+                        Text(hasDrawnPath ? "Lift finger to snap to roads" : "Draw your path with your finger")
+                            .font(.pathwiseCaption)
+                            .foregroundColor(.primaryText.opacity(0.6))
+                    }
+                }
+
+                Spacer()
+
+                if isProcessing {
+                    ProgressView()
+                        .tint(.accent)
+                }
+            }
+
+            // Cancel button
+            HStack {
+                Button(action: onCancel) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "xmark")
+                            .font(.caption)
+                        Text("Cancel")
+                            .font(.pathwiseCaption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.primaryText.opacity(0.7))
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+                    .background(Color.primaryBackground)
+                    .cornerRadius(CornerRadius.md)
+                }
+
+                Spacer()
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.cardBackground)
+        .cornerRadius(CornerRadius.lg)
+        .pathwiseCardShadow()
+    }
+}
+
+// MARK: - Manual Route Info Card
+
+struct ManualRouteInfoCard: View {
+    let route: ManualRoute
+    let onClear: () -> Void
+
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            HStack {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Your Route")
+                        .font(.pathwiseSubheadline)
+                        .foregroundColor(.primaryText)
+
+                    Text("Drawn and snapped to roads")
+                        .font(.pathwiseCaption)
+                        .foregroundColor(.primaryText.opacity(0.6))
+                }
+
+                Spacer()
+
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .foregroundColor(.primaryText.opacity(0.5))
+                }
+            }
+
+            // Stats
+            HStack(spacing: Spacing.lg) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "figure.walk")
+                        .font(.caption)
+                        .foregroundColor(.accent)
+                    Text(route.distanceFormatted)
+                        .font(.pathwiseBody)
+                        .foregroundColor(.primaryText)
+                }
+
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "clock.fill")
+                        .font(.caption)
+                        .foregroundColor(.accent)
+                    Text(route.durationFormatted)
+                        .font(.pathwiseBody)
+                        .foregroundColor(.primaryText)
+                }
+
+                Spacer()
+            }
+        }
+        .padding(Spacing.lg)
         .background(Color.cardBackground)
         .cornerRadius(CornerRadius.lg)
         .pathwiseCardShadow()

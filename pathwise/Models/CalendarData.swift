@@ -32,6 +32,12 @@ struct FreeTimeBlock: Identifiable {
         Int(duration / 60)
     }
 
+    var timeRangeString: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return "\(formatter.string(from: startTime)) - \(formatter.string(from: endTime))"
+    }
+
     func contains(date: Date) -> Bool {
         date >= startTime && date <= endTime
     }

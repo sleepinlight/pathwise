@@ -19,12 +19,20 @@ class PathsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var mapRegion: MKCoordinateRegion
 
+    // Manual route drawing
+    @Published var manualRouteVM: ManualRouteViewModel!
+
+    private let routingService = RoutingService()
+
     init() {
         // Start with a neutral region, will update with user location
         self.mapRegion = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
         )
+
+        // Initialize manual route view model
+        self.manualRouteVM = ManualRouteViewModel(locationManager: self.locationManager)
     }
 
     func onAppear() {
@@ -70,9 +78,10 @@ class PathsViewModel: ObservableObject {
             errorMessage = nil
 
             do {
-                let route = try await RouteGenerationService.generateLoopRoute(
+                // Use new RoutingService with Stadia Maps
+                let route = try await routingService.fetchLoop(
                     from: currentLocation,
-                    distance: selectedDistance.rawValue
+                    miles: selectedDistance.rawValue
                 )
 
                 print("✅ PathsViewModel: Route generated successfully - \(route.distance) miles")

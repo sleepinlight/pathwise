@@ -7,31 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7B3E17352F27D0BD00905F66 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3E17342F27D0BD00905F66 /* MapLibre */; };
+		7B6DC2F72F2973A100EBCACE /* pathwiseWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 7BD947062F25A14900B44241 /* pathwiseWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7BD947072F25A14900B44241 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BD946E82F25A03100B44241 /* WidgetKit.framework */; };
 		7BD947082F25A14900B44241 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BD946EA2F25A03100B44241 /* SwiftUI.framework */; };
-		7BD947192F25A14A00B44241 /* pathwiseWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7BD947062F25A14900B44241 /* pathwiseWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		7BD947172F25A14A00B44241 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7BD946892F2387E400B44241 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7BD947052F25A14900B44241;
-			remoteInfo = pathwiseWidgetExtension;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXCopyFilesBuildPhase section */
-		7BD947012F25A03300B44241 /* Embed Foundation Extensions */ = {
+		7B6DC2F62F29738A00EBCACE /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7BD947192F25A14A00B44241 /* pathwiseWidgetExtension.appex in Embed Foundation Extensions */,
+				7B6DC2F72F2973A100EBCACE /* pathwiseWidgetExtension.appex in Embed App Extensions */,
 			);
-			name = "Embed Foundation Extensions";
+			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -96,6 +87,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7B3E17352F27D0BD00905F66 /* MapLibre in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,18 +142,18 @@
 				7BD9468D2F2387E400B44241 /* Sources */,
 				7BD9468E2F2387E400B44241 /* Frameworks */,
 				7BD9468F2F2387E400B44241 /* Resources */,
-				7BD947012F25A03300B44241 /* Embed Foundation Extensions */,
+				7B6DC2F62F29738A00EBCACE /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				7BD947182F25A14A00B44241 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7BD946932F2387E400B44241 /* pathwise */,
 			);
 			name = pathwise;
 			packageProductDependencies = (
+				7B3E17342F27D0BD00905F66 /* MapLibre */,
 			);
 			productName = pathwise;
 			productReference = 7BD946912F2387E400B44241 /* pathwise.app */;
@@ -216,6 +208,9 @@
 			);
 			mainGroup = 7BD946882F2387E400B44241;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7B3E17332F27CECB00905F66 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7BD946922F2387E400B44241 /* Products */;
 			projectDirPath = "";
@@ -260,14 +255,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		7BD947182F25A14A00B44241 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7BD947052F25A14900B44241 /* pathwiseWidgetExtension */;
-			targetProxy = 7BD947172F25A14A00B44241 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7BD9469A2F2387E600B44241 /* Debug */ = {
@@ -406,7 +393,8 @@
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Pathwise needs access to your calendar to find free time blocks for your walks.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pathwise tracks your steps and activity to celebrate your walking progress.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pathwise may update your health data";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pathwise needs your location to provide accurate weather forecasts for your walking windows.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Pathwise needs your location to generate personalized walking routes and find optimal times for outdoor activity.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pathwise needs your location to generate personalized walking routes and find optimal times for outdoor activity.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -448,7 +436,8 @@
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Pathwise needs access to your calendar to find free time blocks for your walks.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pathwise tracks your steps and activity to celebrate your walking progress.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pathwise may update your health data";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pathwise needs your location to provide accurate weather forecasts for your walking windows.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Pathwise needs your location to generate personalized walking routes and find optimal times for outdoor activity.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pathwise needs your location to generate personalized walking routes and find optimal times for outdoor activity.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -479,12 +468,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = pathwiseWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = GZH8U5M4Q5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = pathwiseWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = pathwiseWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = Pathwise;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -495,6 +485,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sleepinlight.pathwise.pathwiseWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -511,12 +502,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = pathwiseWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = GZH8U5M4Q5;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = pathwiseWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = pathwiseWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = Pathwise;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -527,6 +519,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sleepinlight.pathwise.pathwiseWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -568,6 +561,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7B3E17332F27CECB00905F66 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.23.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7B3E17342F27D0BD00905F66 /* MapLibre */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7B3E17332F27CECB00905F66 /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
+			productName = MapLibre;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7BD946892F2387E400B44241 /* Project object */;
 }

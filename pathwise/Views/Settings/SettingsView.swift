@@ -183,6 +183,9 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Color.cardBackground)
 
+                Toggle("Auto Route Generation", isOn: $devSettings.enableAutoRouteGeneration)
+                    .listRowBackground(Color.cardBackground)
+
                 Text("Triple-tap version number to toggle dev menu")
                     .font(.pathwiseCaption)
                     .foregroundColor(.primaryText.opacity(0.5))
@@ -224,24 +227,7 @@ struct SettingsView: View {
                         .foregroundColor(.accent)
                     }
                 }
-                .onChange(of: viewModel.walkDuration) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.stepGoal) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.walkStartTime) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.walkEndTime) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.idealTempMin) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.idealTempMax) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.theme) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.darkModeStyle) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.notificationsEnabled) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.notificationTime) { _, _ in viewModel.savePreferences() }
-                .onChange(of: viewModel.windowReminderEnabled) { _, _ in viewModel.savePreferences() }
-                .onChange(of: devSettings.currentScenario) { _, _ in
-                    // Trigger refresh when dev scenario changes
-                    NotificationCenter.default.post(name: .devScenarioChanged, object: nil)
-                }
-                .onChange(of: devSettings.enableMocks) { _, _ in
-                    NotificationCenter.default.post(name: .devMocksToggled, object: nil)
-                }
+                .applySettingsObservers(viewModel: viewModel, devSettings: devSettings)
                 .alert("Reset Onboarding", isPresented: $showingResetAlert) {
                     Button("Cancel", role: .cancel) { }
                     Button("Reset", role: .destructive) {
@@ -480,6 +466,49 @@ class SettingsViewModel: ObservableObject {
             return preferences
         }
         return UserPreferences()
+    }
+}
+
+private extension View {
+    func applySettingsObservers(viewModel: SettingsViewModel, devSettings: DeveloperSettings) -> some View {
+        self
+            .onChange(of: viewModel.walkDuration) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.stepGoal) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.walkStartTime) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.walkEndTime) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.idealTempMin) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.idealTempMax) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.theme) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.darkModeStyle) { _, _ in viewModel.savePreferences() }
+            .onChange(of: viewModel.notificationsEnabled) { _, newValue in
+                Task {
+                    if newValue {
+                        let granted = await NotificationService.shared.requestAuthorization()
+                        if !granted {
+                            // Optionally revert the toggle if permission not granted
+                            // viewModel.notificationsEnabled = false
+                        }
+                    } else {
+                        NotificationService.shared.cancelAllNotifications()
+                    }
+                    viewModel.savePreferences()
+                    NotificationCenter.default.post(name: Notification.Name("PreferencesDidChange"), object: nil)
+                }
+            }
+            .onChange(of: viewModel.notificationTime) { _, _ in
+                viewModel.savePreferences()
+                NotificationCenter.default.post(name: Notification.Name("PreferencesDidChange"), object: nil)
+            }
+            .onChange(of: viewModel.windowReminderEnabled) { _, _ in
+                viewModel.savePreferences()
+                NotificationCenter.default.post(name: Notification.Name("PreferencesDidChange"), object: nil)
+            }
+            .onChange(of: devSettings.currentScenario) { _, _ in
+                NotificationCenter.default.post(name: .devScenarioChanged, object: nil)
+            }
+            .onChange(of: devSettings.enableMocks) { _, _ in
+                NotificationCenter.default.post(name: .devMocksToggled, object: nil)
+            }
     }
 }
 

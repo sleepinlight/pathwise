@@ -37,6 +37,22 @@ class DashboardViewModel: ObservableObject {
     @Published var preferences = UserPreferences()
     @Published var isLoading = false
 
+    // Notification preferences change observer
+    private var prefsObserver: NSObjectProtocol?
+
+    init() {
+        // Observe preference changes to re-evaluate scheduled notifications
+        prefsObserver = NotificationCenter.default.addObserver(forName: Notification.Name("PreferencesDidChange"), object: nil, queue: .main) { [weak self] _ in
+            self?.updateNotificationsIfNeeded()
+        }
+    }
+
+    deinit {
+        if let obs = prefsObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
+
     // Legacy computed property for backward compatibility
     var goldenWindow: GoldenWindow? {
         goldenWindows.first ?? fallbackWindow
@@ -249,19 +265,39 @@ class DashboardViewModel: ObservableObject {
 
         // Update widget with new data
         updateWidgetData()
+
+        // Update notifications according to current preferences and windows
+        updateNotificationsIfNeeded()
     }
 
-    // MARK: - Show Me Anyway Action
-    func handleShowMeAnyway() {
-        isIgnoringCalendar = true
-        calculateGoldenWindow()
+    // MARK: - Notifications
+    private func updateNotificationsIfNeeded() {
+        // Read preferences from stored values
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        let windowReminderEnabled = UserDefaults.standard.bool(forKey: "windowReminderEnabled")
+        let notificationTime = preferences.morningNotificationTime
+
+        // Clear any existing schedules to avoid duplicates
+        NotificationService.shared.cancelDailyNudge()
+        NotificationService.shared.cancelWindowReminder()
+
+        guard notificationsEnabled else { return }
+
+        // Use first golden window if available, or fallback
+        if let window = goldenWindows.first ?? fallbackWindow {
+            NotificationService.shared.scheduleDailyNudge(for: window, notificationTime: notificationTime)
+
+            if windowReminderEnabled {
+                NotificationService.shared.scheduleWindowReminder(for: window, minutesBefore: 15)
+            }
+        }
     }
 
     // MARK: - Widget Data Update
     private func updateWidgetData() {
         let widgetData = PathwiseWidgetDataManager.createPathwiseWidgetData(
             goldenWindow: goldenWindows.first,
-            additionalWindows: Array(goldenWindows.dropFirst().prefix(2)), // Up to 2 additional windows
+            additionalWindows: Array(goldenWindows.dropFirst().prefix(2)),
             fallbackWindow: fallbackWindow,
             noWindowReason: noWindowReason,
             todaySteps: todaySteps,
@@ -272,6 +308,12 @@ class DashboardViewModel: ObservableObject {
         )
 
         PathwiseWidgetDataManager.shared.savePathwiseWidgetData(widgetData)
+    }
+
+    // MARK: - Show Me Anyway Action
+    func handleShowMeAnyway() {
+        isIgnoringCalendar = true
+        calculateGoldenWindow()
     }
 
     // MARK: - Settings Update

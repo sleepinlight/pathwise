@@ -74,6 +74,12 @@ class DeveloperSettings: ObservableObject {
         }
     }
 
+    @Published var enableAutoRouteGeneration: Bool {
+        didSet {
+            UserDefaults.standard.set(enableAutoRouteGeneration, forKey: "devEnableAutoRouteGeneration")
+        }
+    }
+
     private init() {
         self.isEnabled = UserDefaults.standard.bool(forKey: "devMenuEnabled")
 
@@ -85,13 +91,15 @@ class DeveloperSettings: ObservableObject {
         }
         
         self.enableMocks = UserDefaults.standard.bool(forKey: "devEnableMocks")
-        
+
         if let mockRaw = UserDefaults.standard.string(forKey: "devBackgroundMock"),
            let mock = BackgroundMock(rawValue: mockRaw) {
             self.backgroundMock = mock
         } else {
             self.backgroundMock = .system
         }
+
+        self.enableAutoRouteGeneration = UserDefaults.standard.bool(forKey: "devEnableAutoRouteGeneration")
     }
 
     // Secret gesture to enable dev menu: triple tap on version number
