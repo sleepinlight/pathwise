@@ -80,6 +80,8 @@ class CalendarService: ObservableObject {
             .filter { !$0.isAllDay && $0.endTime > now }
             .sorted { $0.startTime < $1.startTime }
 
+        print("📅 Calendar: Total events: \(events.count), All-day events: \(events.filter { $0.isAllDay }.count), Non-all-day events: \(sortedEvents.count)")
+
         var freeBlocks: [FreeTimeBlock] = []
         var currentTime = max(now, dayStart)
 
@@ -108,6 +110,11 @@ class CalendarService: ObservableObject {
             if freeBlock.durationInMinutes >= 30 {
                 freeBlocks.append(freeBlock)
             }
+        }
+
+        print("📅 Calendar: Found \(freeBlocks.count) free blocks")
+        for block in freeBlocks {
+            print("  - \(block.timeRangeString): \(block.durationInMinutes) minutes")
         }
 
         return freeBlocks

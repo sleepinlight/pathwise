@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import CoreLocation
 
 @MainActor
 class DashboardViewModel: ObservableObject {
@@ -37,6 +38,36 @@ class DashboardViewModel: ObservableObject {
     @Published var preferences = UserPreferences()
     @Published var isLoading = false
 
+    // Notification preferences change observer
+    private var prefsObserver: NSObjectProtocol?
+
+    // Cache for expensive data fetches
+    private struct CachedData {
+        let weatherForecast: [HourlyWeather]
+        let freeBlocks: [FreeTimeBlock]
+        let timestamp: Date
+        let location: CLLocation?
+
+        var isExpired: Bool {
+            // Cache expires after 5 minutes
+            Date().timeIntervalSince(timestamp) > 5 * 60
+        }
+    }
+    private var dataCache: CachedData?
+
+    init() {
+        // Observe preference changes to re-evaluate scheduled notifications
+        prefsObserver = NotificationCenter.default.addObserver(forName: Notification.Name("PreferencesDidChange"), object: nil, queue: .main) { [weak self] _ in
+            self?.updateNotificationsIfNeeded()
+        }
+    }
+
+    deinit {
+        if let obs = prefsObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
+    }
+
     // Legacy computed property for backward compatibility
     var goldenWindow: GoldenWindow? {
         goldenWindows.first ?? fallbackWindow
@@ -61,6 +92,15 @@ class DashboardViewModel: ObservableObject {
         // Load preferences from UserDefaults
         loadPreferences()
 
+        // Try to use cached data if available and not expired
+        if let cache = dataCache, !cache.isExpired {
+            print("📦 Using cached weather/calendar data (age: \(Int(Date().timeIntervalSince(cache.timestamp)))s)")
+            // Recalculate windows with cached data (in case time has moved forward)
+            calculateGoldenWindow()
+            isLoading = false
+            return
+        }
+
         let dev = DeveloperSettings.shared
         if dev.isEnabled && dev.enableMocks {
             await loadMockData()
@@ -77,6 +117,9 @@ class DashboardViewModel: ObservableObject {
     func refresh() async {
         // Reload preferences in case they changed in settings
         loadPreferences()
+
+        // Force refresh - invalidate cache
+        dataCache = nil
 
         let dev = DeveloperSettings.shared
         if dev.isEnabled && dev.enableMocks {
@@ -139,6 +182,15 @@ class DashboardViewModel: ObservableObject {
         } else {
             self.averagePace = nil
         }
+
+        // Cache weather and calendar data
+        dataCache = CachedData(
+            weatherForecast: weatherService.currentForecast,
+            freeBlocks: calendarService.freeBlocks,
+            timestamp: Date(),
+            location: location
+        )
+        print("📦 Cached weather/calendar data")
     }
 
     // MARK: - Mock Data Loading
@@ -169,6 +221,15 @@ class DashboardViewModel: ObservableObject {
         } else {
             self.averagePace = nil
         }
+
+        // Cache weather and calendar data
+        dataCache = CachedData(
+            weatherForecast: weatherService.currentForecast,
+            freeBlocks: calendarService.freeBlocks,
+            timestamp: Date(),
+            location: locationService.currentLocation
+        )
+        print("📦 Cached mock weather/calendar data")
 
         // Update widget after loading activity data
         updateWidgetData()
@@ -249,19 +310,39 @@ class DashboardViewModel: ObservableObject {
 
         // Update widget with new data
         updateWidgetData()
+
+        // Update notifications according to current preferences and windows
+        updateNotificationsIfNeeded()
     }
 
-    // MARK: - Show Me Anyway Action
-    func handleShowMeAnyway() {
-        isIgnoringCalendar = true
-        calculateGoldenWindow()
+    // MARK: - Notifications
+    private func updateNotificationsIfNeeded() {
+        // Read preferences from stored values
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        let windowReminderEnabled = UserDefaults.standard.bool(forKey: "windowReminderEnabled")
+        let notificationTime = preferences.morningNotificationTime
+
+        // Clear any existing schedules to avoid duplicates
+        NotificationService.shared.cancelDailyNudge()
+        NotificationService.shared.cancelWindowReminder()
+
+        guard notificationsEnabled else { return }
+
+        // Use first golden window if available, or fallback
+        if let window = goldenWindows.first ?? fallbackWindow {
+            NotificationService.shared.scheduleDailyNudge(for: window, notificationTime: notificationTime)
+
+            if windowReminderEnabled {
+                NotificationService.shared.scheduleWindowReminder(for: window, minutesBefore: 15)
+            }
+        }
     }
 
     // MARK: - Widget Data Update
     private func updateWidgetData() {
         let widgetData = PathwiseWidgetDataManager.createPathwiseWidgetData(
             goldenWindow: goldenWindows.first,
-            additionalWindows: Array(goldenWindows.dropFirst().prefix(2)), // Up to 2 additional windows
+            additionalWindows: Array(goldenWindows.dropFirst().prefix(2)),
             fallbackWindow: fallbackWindow,
             noWindowReason: noWindowReason,
             todaySteps: todaySteps,
@@ -272,6 +353,12 @@ class DashboardViewModel: ObservableObject {
         )
 
         PathwiseWidgetDataManager.shared.savePathwiseWidgetData(widgetData)
+    }
+
+    // MARK: - Show Me Anyway Action
+    func handleShowMeAnyway() {
+        isIgnoringCalendar = true
+        calculateGoldenWindow()
     }
 
     // MARK: - Settings Update

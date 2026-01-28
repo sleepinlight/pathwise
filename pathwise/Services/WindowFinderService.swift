@@ -195,10 +195,19 @@ class WindowFinderService {
         var fallbackWindow: GoldenWindow?
         var noWindowReason: NoWindowReason?
 
-        // Convert golden windows (sorted by time, not score)
+        // Convert golden windows - prioritize by quality, consolidate consecutive windows, limit to top 3
         if !goldenScoredWindows.isEmpty {
-            goldenWindows = goldenScoredWindows
-                .sorted { $0.window.startTime < $1.window.startTime } // Earliest time first
+            // Sort by time first to find consecutive windows
+            let sortedByTime = goldenScoredWindows.sorted { $0.window.startTime < $1.window.startTime }
+
+            // Consolidate consecutive hourly windows into ranges
+            let consolidatedWindows = consolidateConsecutiveWindows(sortedByTime)
+
+            // Now pick top 3 by score
+            goldenWindows = consolidatedWindows
+                .sorted { $0.score > $1.score } // Highest score first (quality over time)
+                .prefix(3) // Limit to top 3 highest quality windows
+                .sorted { $0.window.startTime < $1.window.startTime } // Then sort by time for display
                 .map { createGoldenWindow(from: $0) }
         } else {
             // No golden windows - try to provide a fallback
@@ -226,8 +235,11 @@ class WindowFinderService {
         }
 
         // Check if current time is within any golden window
+        // Account for the buffer time - if we're within 3 minutes before the window starts, we're "in" it
+        let bufferMinutes: TimeInterval = 3 * 60
         let isInGoldenWindow = goldenWindows.contains { window in
-            now >= window.startTime && now <= window.endTime
+            let windowStartWithBuffer = window.startTime.addingTimeInterval(-bufferMinutes)
+            return now >= windowStartWithBuffer && now <= window.endTime
         }
 
         return WindowResult(
@@ -255,6 +267,67 @@ class WindowFinderService {
         return result.goldenWindows.first ?? result.fallbackWindow
     }
 
+    // MARK: - Helper to consolidate consecutive windows
+    private func consolidateConsecutiveWindows(_ windows: [ScoredWindow]) -> [ScoredWindow] {
+        guard !windows.isEmpty else { return [] }
+
+        var consolidated: [ScoredWindow] = []
+        var currentGroup: [ScoredWindow] = [windows[0]]
+
+        for i in 1..<windows.count {
+            let previous = windows[i - 1]
+            let current = windows[i]
+
+            // Check if windows are consecutive (within 90 minutes of each other)
+            let timeDiff = current.window.startTime.timeIntervalSince(previous.window.startTime)
+            let areConsecutive = timeDiff <= 90 * 60 // 90 minutes
+
+            // Check if weather/score are similar (within 5 degrees and 10 score points)
+            let tempDiff = abs(current.weather.temperature - previous.weather.temperature)
+            let scoreDiff = abs(current.score - previous.score)
+            let areSimilar = tempDiff <= 5.0 && scoreDiff <= 10.0
+
+            if areConsecutive && areSimilar {
+                // Add to current group
+                currentGroup.append(current)
+            } else {
+                // Finalize current group and start new one
+                if currentGroup.count >= 2 {
+                    // Consolidate group into a single window (range)
+                    consolidated.append(consolidateGroup(currentGroup))
+                } else {
+                    // Keep single windows as-is
+                    consolidated.append(contentsOf: currentGroup)
+                }
+                currentGroup = [current]
+            }
+        }
+
+        // Handle last group
+        if currentGroup.count >= 2 {
+            consolidated.append(consolidateGroup(currentGroup))
+        } else {
+            consolidated.append(contentsOf: currentGroup)
+        }
+
+        return consolidated
+    }
+
+    private func consolidateGroup(_ group: [ScoredWindow]) -> ScoredWindow {
+        // Use first window's start time and last window's end time to create a range
+        let startTime = group.first!.window.startTime
+        let endTime = group.last!.window.endTime
+
+        // Use the best score and weather from the group
+        let bestWindow = group.max(by: { $0.score < $1.score })!
+
+        return ScoredWindow(
+            window: FreeTimeBlock(startTime: startTime, endTime: endTime),
+            weather: bestWindow.weather,
+            score: bestWindow.score
+        )
+    }
+
     // MARK: - Helper to create GoldenWindow from ScoredWindow
     private func createGoldenWindow(from scored: ScoredWindow, isFallback: Bool = false) -> GoldenWindow {
         let reason = generateReasonSummary(weather: scored.weather, score: scored.score, isFallback: isFallback)
@@ -279,7 +352,15 @@ class WindowFinderService {
         let totalRequiredDuration = TimeInterval((preferences.preferredWalkDuration + bufferMinutes * 2) * 60)
         let calendar = Calendar.current
 
-        return freeBlocks.filter { block in
+        print("🔍 WindowFinder: Filtering \(freeBlocks.count) free blocks")
+        print("   Required duration: \(totalRequiredDuration / 60) minutes")
+        print("   Look-ahead window: \(startTime) to \(endTime)")
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        print("   Preferred walk time: \(formatter.string(from: preferences.preferredWalkStartTime)) to \(formatter.string(from: preferences.preferredWalkEndTime))")
+
+        let filtered = freeBlocks.filter { block in
             let blockComponents = calendar.dateComponents([.hour, .minute], from: block.startTime)
             let startComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkStartTime)
             let endComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkEndTime)
@@ -288,13 +369,32 @@ class WindowFinderService {
             let startMinutes = (startComponents.hour ?? 0) * 60 + (startComponents.minute ?? 0)
             let endMinutes = (endComponents.hour ?? 0) * 60 + (endComponents.minute ?? 0)
 
+            // Allow blocks that start within 60 seconds before the look-ahead window
+            // (to account for timing differences between when calendar service and window finder run)
+            let blockStartWithTolerance = block.startTime.addingTimeInterval(60)
+            let withinLookAhead = blockStartWithTolerance >= startTime && block.startTime <= endTime
+            let longEnough = block.duration >= totalRequiredDuration
+            let inPreferredTime = blockMinutes >= startMinutes && blockMinutes < endMinutes
+
+            print("   Block \(block.timeRangeString) (\(block.durationInMinutes) min):")
+            print("     - Block start: \(block.startTime.timeIntervalSince1970)")
+            print("     - Window start: \(startTime.timeIntervalSince1970)")
+            print("     - Window end: \(endTime.timeIntervalSince1970)")
+            print("     - Within look-ahead: \(withinLookAhead)")
+            print("     - Long enough: \(longEnough) (need \(Int(totalRequiredDuration / 60)) min)")
+            print("     - In preferred time: \(inPreferredTime) (block: \(blockMinutes) min, range: \(startMinutes)-\(endMinutes) min)")
+
             // Block must be within our look-ahead window
-            return block.startTime >= startTime && block.startTime <= endTime &&
+            return withinLookAhead &&
             // Block must be at least as long as walk duration + buffer on both sides
-            block.duration >= totalRequiredDuration &&
+            longEnough &&
             // Block must be within preferred walking time
-            blockMinutes >= startMinutes && blockMinutes < endMinutes
-        }.map { block in
+            inPreferredTime
+        }
+
+        print("🔍 WindowFinder: \(filtered.count) blocks passed filters")
+
+        return filtered.map { block in
             // Create a window with buffer time before and after
             // Start the walk after the buffer
             let windowStart = calendar.date(
