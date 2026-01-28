@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import CoreLocation
 
 @MainActor
 class DashboardViewModel: ObservableObject {
@@ -39,6 +40,20 @@ class DashboardViewModel: ObservableObject {
 
     // Notification preferences change observer
     private var prefsObserver: NSObjectProtocol?
+
+    // Cache for expensive data fetches
+    private struct CachedData {
+        let weatherForecast: [HourlyWeather]
+        let freeBlocks: [FreeTimeBlock]
+        let timestamp: Date
+        let location: CLLocation?
+
+        var isExpired: Bool {
+            // Cache expires after 5 minutes
+            Date().timeIntervalSince(timestamp) > 5 * 60
+        }
+    }
+    private var dataCache: CachedData?
 
     init() {
         // Observe preference changes to re-evaluate scheduled notifications
@@ -77,6 +92,15 @@ class DashboardViewModel: ObservableObject {
         // Load preferences from UserDefaults
         loadPreferences()
 
+        // Try to use cached data if available and not expired
+        if let cache = dataCache, !cache.isExpired {
+            print("📦 Using cached weather/calendar data (age: \(Int(Date().timeIntervalSince(cache.timestamp)))s)")
+            // Recalculate windows with cached data (in case time has moved forward)
+            calculateGoldenWindow()
+            isLoading = false
+            return
+        }
+
         let dev = DeveloperSettings.shared
         if dev.isEnabled && dev.enableMocks {
             await loadMockData()
@@ -93,6 +117,9 @@ class DashboardViewModel: ObservableObject {
     func refresh() async {
         // Reload preferences in case they changed in settings
         loadPreferences()
+
+        // Force refresh - invalidate cache
+        dataCache = nil
 
         let dev = DeveloperSettings.shared
         if dev.isEnabled && dev.enableMocks {
@@ -155,6 +182,15 @@ class DashboardViewModel: ObservableObject {
         } else {
             self.averagePace = nil
         }
+
+        // Cache weather and calendar data
+        dataCache = CachedData(
+            weatherForecast: weatherService.currentForecast,
+            freeBlocks: calendarService.freeBlocks,
+            timestamp: Date(),
+            location: location
+        )
+        print("📦 Cached weather/calendar data")
     }
 
     // MARK: - Mock Data Loading
@@ -185,6 +221,15 @@ class DashboardViewModel: ObservableObject {
         } else {
             self.averagePace = nil
         }
+
+        // Cache weather and calendar data
+        dataCache = CachedData(
+            weatherForecast: weatherService.currentForecast,
+            freeBlocks: calendarService.freeBlocks,
+            timestamp: Date(),
+            location: locationService.currentLocation
+        )
+        print("📦 Cached mock weather/calendar data")
 
         // Update widget after loading activity data
         updateWidgetData()

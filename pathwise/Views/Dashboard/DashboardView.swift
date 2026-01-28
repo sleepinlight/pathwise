@@ -14,77 +14,83 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
-                    // Header
-                    HeaderView(
-                        greeting: viewModel.greeting,
-                        isInGoldenWindow: viewModel.isInGoldenWindow,
-                        onSettingsTap: { showingSettings = true }
-                    )
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.md)
+            Group {
+                if viewModel.isLoading {
+                    LoadingSplashView()
+                } else {
+                    ScrollView {
+                        VStack(spacing: Spacing.lg) {
+                            // Header
+                            HeaderView(
+                                greeting: viewModel.greeting,
+                                isInGoldenWindow: viewModel.isInGoldenWindow,
+                                onSettingsTap: { showingSettings = true }
+                            )
+                            .padding(.horizontal, Spacing.lg)
+                            .padding(.top, Spacing.md)
 
-                    // Golden Window Card
-                    GoldenWindowCard(
-                        goldenWindows: viewModel.goldenWindows,
-                        fallbackWindow: viewModel.fallbackWindow,
-                        splitWalkSuggestion: viewModel.splitWalkSuggestion,
-                        noWindowReason: viewModel.noWindowReason,
-                        isInGoldenWindow: viewModel.isInGoldenWindow,
-                        activeWeatherAlerts: viewModel.activeWeatherAlerts,
-                        isCalendarBlocking: viewModel.isCalendarBlocking,
-                        onShowMeAnyway: {
-                            viewModel.handleShowMeAnyway()
+                            // Golden Window Card
+                            GoldenWindowCard(
+                                goldenWindows: viewModel.goldenWindows,
+                                fallbackWindow: viewModel.fallbackWindow,
+                                splitWalkSuggestion: viewModel.splitWalkSuggestion,
+                                noWindowReason: viewModel.noWindowReason,
+                                isInGoldenWindow: viewModel.isInGoldenWindow,
+                                activeWeatherAlerts: viewModel.activeWeatherAlerts,
+                                isCalendarBlocking: viewModel.isCalendarBlocking,
+                                onShowMeAnyway: {
+                                    viewModel.handleShowMeAnyway()
+                                }
+                            )
+                            .padding(.horizontal, Spacing.lg)
+
+                            // Activity Stats
+                            ActivityStatsCard(
+                                steps: viewModel.todaySteps,
+                                distance: viewModel.todayDistance,
+                                minutes: viewModel.todayMinutes,
+                                stepGoal: viewModel.preferences.dailyStepGoal,
+                                averagePace: viewModel.averagePace,
+                                averageHeartRate: viewModel.averageHeartRate,
+                                activeCalories: viewModel.activeCalories
+                            )
+                            .padding(.horizontal, Spacing.lg)
+
+                            // Weekly Chart
+                            if !viewModel.weeklyActivities.isEmpty {
+                                WeeklyActivityChart(
+                                    weeklyActivities: viewModel.weeklyActivities,
+                                    stepGoal: viewModel.preferences.dailyStepGoal
+                                )
+                                .padding(.horizontal, Spacing.lg)
+
+                                // Trends Card
+                                TrendsCard(
+                                    weeklyActivities: viewModel.weeklyActivities,
+                                    stepGoal: viewModel.preferences.dailyStepGoal
+                                )
+                                .padding(.horizontal, Spacing.lg)
+                            }
+
+                            Spacer(minLength: Spacing.xl)
+                        }
+                        .padding(.bottom, Spacing.xl)
+                    }
+                    .background(
+                        Group {
+                            if dynamicBackgroundEnabled {
+                                DynamicBackgroundView()
+                            } else {
+                                Color.primaryBackground.ignoresSafeArea()
+                            }
                         }
                     )
-                    .padding(.horizontal, Spacing.lg)
-
-                    // Activity Stats
-                    ActivityStatsCard(
-                        steps: viewModel.todaySteps,
-                        distance: viewModel.todayDistance,
-                        minutes: viewModel.todayMinutes,
-                        stepGoal: viewModel.preferences.dailyStepGoal,
-                        averagePace: viewModel.averagePace,
-                        averageHeartRate: viewModel.averageHeartRate,
-                        activeCalories: viewModel.activeCalories
-                    )
-                    .padding(.horizontal, Spacing.lg)
-
-                    // Weekly Chart
-                    if !viewModel.weeklyActivities.isEmpty {
-                        WeeklyActivityChart(
-                            weeklyActivities: viewModel.weeklyActivities,
-                            stepGoal: viewModel.preferences.dailyStepGoal
-                        )
-                        .padding(.horizontal, Spacing.lg)
-
-                        // Trends Card
-                        TrendsCard(
-                            weeklyActivities: viewModel.weeklyActivities,
-                            stepGoal: viewModel.preferences.dailyStepGoal
-                        )
-                        .padding(.horizontal, Spacing.lg)
+                    .refreshable {
+                        await viewModel.refresh()
                     }
-
-                    Spacer(minLength: Spacing.xl)
                 }
-                .padding(.bottom, Spacing.xl)
             }
-            .background(
-                Group {
-                    if dynamicBackgroundEnabled {
-                        DynamicBackgroundView()
-                    } else {
-                        Color.primaryBackground.ignoresSafeArea()
-                    }
-                }
-            )
             .navigationBarHidden(true)
-            .refreshable {
-                await viewModel.refresh()
-            }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }

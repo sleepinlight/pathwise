@@ -235,8 +235,11 @@ class WindowFinderService {
         }
 
         // Check if current time is within any golden window
+        // Account for the buffer time - if we're within 3 minutes before the window starts, we're "in" it
+        let bufferMinutes: TimeInterval = 3 * 60
         let isInGoldenWindow = goldenWindows.contains { window in
-            now >= window.startTime && now <= window.endTime
+            let windowStartWithBuffer = window.startTime.addingTimeInterval(-bufferMinutes)
+            return now >= windowStartWithBuffer && now <= window.endTime
         }
 
         return WindowResult(
