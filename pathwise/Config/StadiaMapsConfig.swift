@@ -8,9 +8,8 @@
 import Foundation
 
 struct StadiaMapsConfig {
-    // TODO: Replace with your Stadia Maps API key
-    // Get one at: https://client.stadiamaps.com/signup/
-    static let apiKey = "dbfc8f17-20c7-4013-9c99-2d6a07c397d6"
+    // API key is stored in Secrets.swift (gitignored)
+    static let apiKey = Secrets.stadiaMapsAPIKey
 
     static let routingAPIBaseURL = "https://api.stadiamaps.com/route/v1"
 
