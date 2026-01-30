@@ -176,11 +176,20 @@ class WindowFinderService {
             let score = calculateWindowScore(time: window.startTime, weather: weather)
             let scoredWindow = ScoredWindow(window: window, weather: weather, score: score)
 
+            // DEBUG: Log all windows being evaluated
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            let timeString = formatter.string(from: window.startTime)
+            print("🪟 Window at \(timeString): temp=\(String(format: "%.0f", weather.temperature))°F, score=\(String(format: "%.1f", score))")
+
             if isWeatherExtreme(weather) {
+                print("  ❌ Filtered as EXTREME weather")
                 extremeWeatherWindows.append(scoredWindow)
             } else if isWeatherPoor(weather) {
+                print("  ⚠️ Filtered as POOR weather")
                 poorWeatherWindows.append(scoredWindow)
             } else {
+                print("  ✅ Added as acceptable window")
                 allScoredWindows.append(scoredWindow)
             }
         }
@@ -189,6 +198,8 @@ class WindowFinderService {
         let goldenWindowThreshold = 50.0
         let goldenScoredWindows = allScoredWindows.filter { $0.score >= goldenWindowThreshold }
         let acceptableScoredWindows = allScoredWindows.filter { $0.score < goldenWindowThreshold }
+
+        print("📊 Scoring summary: \(goldenScoredWindows.count) golden windows, \(acceptableScoredWindows.count) acceptable, \(poorWeatherWindows.count) poor, \(extremeWeatherWindows.count) extreme")
 
         // Step 4: Build result
         var goldenWindows: [GoldenWindow] = []
@@ -211,19 +222,33 @@ class WindowFinderService {
                 .map { createGoldenWindow(from: $0) }
         } else {
             // No golden windows - try to provide a fallback
+            print("⚠️ No golden windows found, looking for fallback...")
             if let bestAcceptable = acceptableScoredWindows.max(by: { $0.score < $1.score }) {
                 // There's an acceptable (but not ideal) window
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                let timeString = formatter.string(from: bestAcceptable.window.startTime)
+                print("  → Using acceptable window at \(timeString) with score \(String(format: "%.1f", bestAcceptable.score))")
                 fallbackWindow = createGoldenWindow(from: bestAcceptable, isFallback: true)
             } else if let bestPoor = poorWeatherWindows.max(by: { $0.score < $1.score }) {
                 // Only poor weather windows available
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                let timeString = formatter.string(from: bestPoor.window.startTime)
+                print("  → Using poor weather window at \(timeString) with score \(String(format: "%.1f", bestPoor.score))")
                 noWindowReason = .poorWeather
                 fallbackWindow = createGoldenWindow(from: bestPoor, isFallback: true)
             } else if let leastBad = extremeWeatherWindows.max(by: { $0.score < $1.score }) {
                 // Only unsafe weather windows available
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                let timeString = formatter.string(from: leastBad.window.startTime)
+                print("  → Using extreme weather window at \(timeString) with score \(String(format: "%.1f", leastBad.score))")
                 noWindowReason = .unsafeWeather
                 fallbackWindow = createGoldenWindow(from: leastBad, isFallback: true)
             } else {
                 // No weather data at all
+                print("  → No weather data available")
                 noWindowReason = .noWeatherData
             }
         }
@@ -394,21 +419,61 @@ class WindowFinderService {
 
         print("🔍 WindowFinder: \(filtered.count) blocks passed filters")
 
-        return filtered.map { block in
-            // Create a window with buffer time before and after
-            // Start the walk after the buffer
-            let windowStart = calendar.date(
+        // Generate hourly windows from each free block
+        var windows: [FreeTimeBlock] = []
+
+        for block in filtered {
+            // Start the first window after the buffer
+            var currentWindowStart = calendar.date(
                 byAdding: .minute,
                 value: bufferMinutes,
                 to: block.startTime
             )!
-            let windowEnd = calendar.date(
-                byAdding: .minute,
-                value: preferences.preferredWalkDuration,
-                to: windowStart
-            )!
-            return FreeTimeBlock(startTime: windowStart, endTime: windowEnd)
+
+            // Generate hourly windows until we can't fit another walk + buffer
+            while true {
+                let windowEnd = calendar.date(
+                    byAdding: .minute,
+                    value: preferences.preferredWalkDuration,
+                    to: currentWindowStart
+                )!
+
+                let windowEndWithBuffer = calendar.date(
+                    byAdding: .minute,
+                    value: bufferMinutes,
+                    to: windowEnd
+                )!
+
+                // Check if this window fits within the free block
+                guard windowEndWithBuffer <= block.endTime else {
+                    break
+                }
+
+                // Check if window is within preferred walking time
+                let windowComponents = calendar.dateComponents([.hour, .minute], from: currentWindowStart)
+                let startComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkStartTime)
+                let endComponents = calendar.dateComponents([.hour, .minute], from: preferences.preferredWalkEndTime)
+
+                let windowMinutes = (windowComponents.hour ?? 0) * 60 + (windowComponents.minute ?? 0)
+                let startMinutes = (startComponents.hour ?? 0) * 60 + (startComponents.minute ?? 0)
+                let endMinutes = (endComponents.hour ?? 0) * 60 + (endComponents.minute ?? 0)
+
+                if windowMinutes >= startMinutes && windowMinutes < endMinutes {
+                    windows.append(FreeTimeBlock(startTime: currentWindowStart, endTime: windowEnd))
+                }
+
+                // Move to next hour
+                currentWindowStart = calendar.date(
+                    byAdding: .hour,
+                    value: 1,
+                    to: currentWindowStart
+                )!
+            }
         }
+
+        print("🔍 WindowFinder: Generated \(windows.count) hourly windows from filtered blocks")
+
+        return windows
     }
 
     private func findWeatherForTime(_ time: Date, forecast: [HourlyWeather]) -> HourlyWeather? {
@@ -472,23 +537,46 @@ class WindowFinderService {
         let precipScore = calculatePrecipitationScore(weather.precipitationProbability)
         score += precipScore
 
+        // DEBUG: Log score breakdown
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: time)
+        print("  💯 Score breakdown: temp=\(String(format: "%.1f", tempScore)), daylight=\(String(format: "%.1f", daylightScore)) (hr \(hour)), condition=\(String(format: "%.1f", conditionScore)), precip=\(String(format: "%.1f", precipScore))")
+
         return score
     }
 
     private func calculateTemperatureScore(_ temp: Double) -> Double {
         if preferences.isTemperatureIdeal(temp) {
-            // Perfect temperature
+            // Perfect temperature (60-80°F)
             return 40.0
         } else if temp >= preferences.idealTemperatureMin - 10 && temp <= preferences.idealTemperatureMax + 10 {
-            // Close to ideal (within 10°F)
+            // Close to ideal (50-90°F range)
             let distanceFromIdeal = min(
                 abs(temp - preferences.idealTemperatureMin),
                 abs(temp - preferences.idealTemperatureMax)
             )
             return 40.0 - (distanceFromIdeal * 2.0)
         } else {
-            // Far from ideal
-            return 10.0
+            // Far from ideal but not extreme - score based on how close to extremes
+            // This gives better differentiation between 45°F and 27°F
+            if temp < preferences.idealTemperatureMin - 10 {
+                // Cold side (< 50°F)
+                let distanceFromExtreme = temp - preferences.extremeTempMin
+                if distanceFromExtreme <= 0 {
+                    return 0.0 // At or below extreme minimum
+                }
+                // Scale from 0-20 points based on distance from extreme
+                // e.g., 45°F gets 15 points, 35°F gets 5 points, 30°F gets 0 points
+                return min(20.0, distanceFromExtreme / 2.0)
+            } else {
+                // Hot side (> 90°F)
+                let distanceFromExtreme = preferences.extremeTempMax - temp
+                if distanceFromExtreme <= 0 {
+                    return 0.0 // At or above extreme maximum
+                }
+                // Scale from 0-20 points based on distance from extreme
+                return min(20.0, distanceFromExtreme / 2.0)
+            }
         }
     }
 

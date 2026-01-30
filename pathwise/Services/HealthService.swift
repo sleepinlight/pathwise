@@ -19,12 +19,15 @@ class HealthService: ObservableObject {
     @Published var todayActiveCalories: Double = 0.0
     @Published var todayAverageHeartRate: Int? = nil
     @Published var weeklyActivities: [DailyActivity] = []
+    @Published var todayWorkouts: [WorkoutSummary] = []
+    @Published var hasMetGoalToday: Bool = false
 
     private let stepCountType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
     private let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!
     private let exerciseTimeType = HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!
     private let activeEnergyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!
     private let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
+    private let workoutType = HKObjectType.workoutType()
 
     // MARK: - Authorization
     func requestHealthAccess() async -> Bool {
@@ -37,7 +40,8 @@ class HealthService: ObservableObject {
             distanceType,
             exerciseTimeType,
             activeEnergyType,
-            heartRateType
+            heartRateType,
+            workoutType
         ]
 
         do {
@@ -65,8 +69,9 @@ class HealthService: ObservableObject {
         async let minutes = fetchExerciseMinutes(from: startOfDay, to: now)
         async let activeCalories = fetchActiveCalories(from: startOfDay, to: now)
         async let heartRate = fetchAverageHeartRate(from: startOfDay, to: now)
+        async let workouts = fetchWorkouts(from: startOfDay, to: now)
 
-        let (stepsValue, distanceValue, minutesValue, caloriesValue, heartRateValue) = await (steps, distance, minutes, activeCalories, heartRate)
+        let (stepsValue, distanceValue, minutesValue, caloriesValue, heartRateValue, workoutsValue) = await (steps, distance, minutes, activeCalories, heartRate, workouts)
 
         await MainActor.run {
             self.todaySteps = stepsValue
@@ -74,6 +79,7 @@ class HealthService: ObservableObject {
             self.todayMinutesMoved = minutesValue
             self.todayActiveCalories = caloriesValue
             self.todayAverageHeartRate = heartRateValue
+            self.todayWorkouts = workoutsValue
         }
     }
 
@@ -213,18 +219,76 @@ class HealthService: ObservableObject {
         }
     }
 
+    // MARK: - Fetch Workouts
+    private func fetchWorkouts(from startDate: Date, to endDate: Date) async -> [WorkoutSummary] {
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+
+        // Filter for walking and running workouts
+        let walkingPredicate = HKQuery.predicateForWorkouts(with: .walking)
+        let runningPredicate = HKQuery.predicateForWorkouts(with: .running)
+        let workoutTypePredicate = NSCompoundPredicate(orPredicateWithSubpredicates: [walkingPredicate, runningPredicate])
+        let combinedPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, workoutTypePredicate])
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: workoutType,
+                predicate: combinedPredicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+            ) { _, samples, error in
+                guard let workouts = samples as? [HKWorkout], error == nil else {
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                let summaries = workouts.map { workout in
+                    WorkoutSummary(
+                        type: workout.workoutActivityType,
+                        startDate: workout.startDate,
+                        endDate: workout.endDate,
+                        duration: workout.duration,
+                        distance: workout.totalDistance?.doubleValue(for: .mile()) ?? 0.0,
+                        isOutdoor: workout.workoutActivityType == .walking || workout.workoutActivityType == .running
+                    )
+                }
+
+                continuation.resume(returning: summaries)
+            }
+            healthStore.execute(query)
+        }
+    }
+
     // MARK: - Mock Data (for development/testing)
     func useMockHealthData(stepGoal: Int = 8000) {
-        // Today's steps - fixed value that doesn't change when goal changes
-        // This simulates real step tracking where actual steps are measured, not calculated
-        todaySteps = 4480 // Fixed at ~56% of default 8000 goal
-        todayDistance = 2.1
-        todayMinutesMoved = 35
-        todayActiveCalories = 215.0 // Realistic for this activity level
+        // Today's steps - set above goal to test goal achievement
+        // Toggle between goal achieved and not achieved for testing
+        let achievedGoal = true // Set to false to test normal state
+        todaySteps = achievedGoal ? 8500 : 4480 // Above or below goal
+        todayDistance = achievedGoal ? 4.2 : 2.1
+        todayMinutesMoved = achievedGoal ? 55 : 35
+        todayActiveCalories = achievedGoal ? 320.0 : 215.0
         todayAverageHeartRate = 105 // Average walking heart rate
         hasHealthAccess = true
 
+        // Mock workout data - simulates a completed morning walk
         let calendar = Calendar.current
+        let now = Date()
+        if let morningStart = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: now),
+           let morningEnd = calendar.date(bySettingHour: 9, minute: 5, second: 0, of: now) {
+            todayWorkouts = [
+                WorkoutSummary(
+                    type: .walking,
+                    startDate: morningStart,
+                    endDate: morningEnd,
+                    duration: 35 * 60, // 35 minutes
+                    distance: 1.8,
+                    isOutdoor: true
+                )
+            ]
+        } else {
+            todayWorkouts = []
+        }
+
         weeklyActivities = (0..<7).map { dayOffset in
             let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date())!
 

@@ -12,6 +12,7 @@ struct MainTabView: View {
 
     enum Tab {
         case dashboard
+        case trends
         case paths
     }
 
@@ -27,6 +28,17 @@ struct MainTabView: View {
                     }
                 }
                 .tag(Tab.dashboard)
+
+            // Trends Tab
+            TrendsView()
+                .tabItem {
+                    Label {
+                        Text("Trends")
+                    } icon: {
+                        Image(systemName: selectedTab == .trends ? "chart.bar.fill" : "chart.bar")
+                    }
+                }
+                .tag(Tab.trends)
 
             // Paths Tab
             PathsView()

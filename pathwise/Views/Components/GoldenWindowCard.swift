@@ -16,6 +16,8 @@ struct GoldenWindowCard: View {
     let activeWeatherAlerts: [WeatherAlert]
     let isCalendarBlocking: Bool
     let onShowMeAnyway: (() -> Void)?
+    var hasMetGoalToday: Bool = false
+    var todayWorkouts: [WorkoutSummary] = []
 
     @State private var currentWindowIndex = 0
 
@@ -48,7 +50,9 @@ struct GoldenWindowCard: View {
         isInGoldenWindow: Bool = false,
         activeWeatherAlerts: [WeatherAlert] = [],
         isCalendarBlocking: Bool = false,
-        onShowMeAnyway: (() -> Void)? = nil
+        onShowMeAnyway: (() -> Void)? = nil,
+        hasMetGoalToday: Bool = false,
+        todayWorkouts: [WorkoutSummary] = []
     ) {
         self.goldenWindows = goldenWindows
         self.fallbackWindow = fallbackWindow
@@ -58,11 +62,16 @@ struct GoldenWindowCard: View {
         self.activeWeatherAlerts = activeWeatherAlerts
         self.isCalendarBlocking = isCalendarBlocking
         self.onShowMeAnyway = onShowMeAnyway
+        self.hasMetGoalToday = hasMetGoalToday
+        self.todayWorkouts = todayWorkouts
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            if !goldenWindows.isEmpty {
+            if hasMetGoalToday {
+                // Show goal achieved state with optional soft suggestion
+                goalAchievedContent
+            } else if !goldenWindows.isEmpty {
                 // Show golden windows with navigation if multiple
                 goldenWindowContent
             } else if let fallback = fallbackWindow {
@@ -91,6 +100,65 @@ struct GoldenWindowCard: View {
                 .stroke(isInGoldenWindow ? Color.accent : Color.clear, lineWidth: 2)
         )
         .pathwiseCardShadow()
+    }
+
+    // MARK: - Goal Achieved Content
+
+    private var goalAchievedContent: some View {
+        VStack(spacing: Spacing.md) {
+            // Celebration header
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(.green)
+
+                Text("Goal Achieved!")
+                    .font(.pathwiseSubheadline)
+                    .foregroundColor(.primaryText)
+
+                Spacer()
+            }
+
+            // Achievement details
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                if let workout = todayWorkouts.first {
+                    Text("Great job! You completed a \(workout.durationInMinutes)-minute \(workout.activityName.lowercased()) today.")
+                        .font(.pathwiseBody)
+                        .foregroundColor(.primaryText.opacity(0.8))
+                } else {
+                    Text("Excellent work! You've reached your daily step goal.")
+                        .font(.pathwiseBody)
+                        .foregroundColor(.primaryText.opacity(0.8))
+                }
+
+                // Soft suggestion for going further
+                if !goldenWindows.isEmpty {
+                    Divider()
+                        .padding(.vertical, Spacing.xs)
+
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "sparkles")
+                                .font(.caption)
+                                .foregroundColor(.accent.opacity(0.7))
+
+                            Text("Want to keep the momentum going?")
+                                .font(.pathwiseCaption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primaryText)
+                        }
+
+                        let nextWindow = goldenWindows[0]
+                        Text("There's a great walking window at \(nextWindow.timeString)")
+                            .font(.pathwiseCaption)
+                            .foregroundColor(.primaryText.opacity(0.6))
+                    }
+                    .padding(Spacing.sm)
+                    .background(Color.accent.opacity(0.05))
+                    .cornerRadius(CornerRadius.sm)
+                }
+            }
+        }
     }
 
     // MARK: - Golden Window Content

@@ -40,7 +40,9 @@ struct DashboardView: View {
                                 isCalendarBlocking: viewModel.isCalendarBlocking,
                                 onShowMeAnyway: {
                                     viewModel.handleShowMeAnyway()
-                                }
+                                },
+                                hasMetGoalToday: viewModel.hasMetGoalToday,
+                                todayWorkouts: viewModel.todayWorkouts
                             )
                             .padding(.horizontal, Spacing.lg)
 
@@ -55,22 +57,6 @@ struct DashboardView: View {
                                 activeCalories: viewModel.activeCalories
                             )
                             .padding(.horizontal, Spacing.lg)
-
-                            // Weekly Chart
-                            if !viewModel.weeklyActivities.isEmpty {
-                                WeeklyActivityChart(
-                                    weeklyActivities: viewModel.weeklyActivities,
-                                    stepGoal: viewModel.preferences.dailyStepGoal
-                                )
-                                .padding(.horizontal, Spacing.lg)
-
-                                // Trends Card
-                                TrendsCard(
-                                    weeklyActivities: viewModel.weeklyActivities,
-                                    stepGoal: viewModel.preferences.dailyStepGoal
-                                )
-                                .padding(.horizontal, Spacing.lg)
-                            }
 
                             Spacer(minLength: Spacing.xl)
                         }

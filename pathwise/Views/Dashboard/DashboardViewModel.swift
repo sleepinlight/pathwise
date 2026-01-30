@@ -37,6 +37,8 @@ class DashboardViewModel: ObservableObject {
     @Published var weeklyActivities: [DailyActivity] = []
     @Published var preferences = UserPreferences()
     @Published var isLoading = false
+    @Published var hasMetGoalToday: Bool = false
+    @Published var todayWorkouts: [WorkoutSummary] = []
 
     // Notification preferences change observer
     private var prefsObserver: NSObjectProtocol?
@@ -175,6 +177,7 @@ class DashboardViewModel: ObservableObject {
         self.activeCalories = healthService.todayActiveCalories
         self.averageHeartRate = healthService.todayAverageHeartRate
         self.weeklyActivities = healthService.weeklyActivities
+        self.todayWorkouts = healthService.todayWorkouts
 
         // Calculate average pace if we have distance and time data
         if healthService.todayDistance > 0 && healthService.todayMinutesMoved > 0 {
@@ -182,6 +185,9 @@ class DashboardViewModel: ObservableObject {
         } else {
             self.averagePace = nil
         }
+
+        // Check if user has met their goal today
+        checkGoalAchievement()
 
         // Cache weather and calendar data
         dataCache = CachedData(
@@ -214,6 +220,7 @@ class DashboardViewModel: ObservableObject {
         self.activeCalories = healthService.todayActiveCalories
         self.averageHeartRate = healthService.todayAverageHeartRate
         self.weeklyActivities = healthService.weeklyActivities
+        self.todayWorkouts = healthService.todayWorkouts
 
         // Calculate average pace if we have distance and time data
         if healthService.todayDistance > 0 && healthService.todayMinutesMoved > 0 {
@@ -221,6 +228,9 @@ class DashboardViewModel: ObservableObject {
         } else {
             self.averagePace = nil
         }
+
+        // Check if user has met their goal today
+        checkGoalAchievement()
 
         // Cache weather and calendar data
         dataCache = CachedData(
@@ -233,6 +243,24 @@ class DashboardViewModel: ObservableObject {
 
         // Update widget after loading activity data
         updateWidgetData()
+    }
+
+    // MARK: - Goal Achievement Check
+    private func checkGoalAchievement() {
+        // Check if user has met their step goal
+        let hasMetStepGoal = todaySteps >= preferences.dailyStepGoal
+
+        // Check if user has completed a walk/run that meets the preferred duration
+        let hasCompletedQualifyingWorkout = todayWorkouts.contains { workout in
+            workout.durationInMinutes >= preferences.preferredWalkDuration
+        }
+
+        // User has met goal if either condition is true
+        hasMetGoalToday = hasMetStepGoal || hasCompletedQualifyingWorkout
+
+        if hasMetGoalToday {
+            print("🎉 Goal achieved! Steps: \(todaySteps)/\(preferences.dailyStepGoal), Qualifying workouts: \(todayWorkouts.filter { $0.durationInMinutes >= preferences.preferredWalkDuration }.count)")
+        }
     }
 
     // MARK: - Golden Window Calculation

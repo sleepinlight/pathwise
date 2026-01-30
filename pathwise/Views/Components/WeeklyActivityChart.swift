@@ -11,6 +11,8 @@ struct WeeklyActivityChart: View {
     let weeklyActivities: [DailyActivity]
     var stepGoal: Int = 8000 // Default goal, can be customized
 
+    @State private var selectedActivity: DailyActivity?
+
     private var maxSteps: Int {
         // Use the max of either the highest steps OR the goal, so bars scale properly
         max(weeklyActivities.map { $0.steps }.max() ?? 1, stepGoal)
@@ -48,24 +50,47 @@ struct WeeklyActivityChart: View {
             }
 
             // Bar Chart
-            VStack(spacing: Spacing.md) {
-                // Bars
-                HStack(alignment: .bottom, spacing: Spacing.sm) {
-                    ForEach(weeklyActivities) { activity in
-                        BarColumnView(
-                            activity: activity,
-                            maxSteps: maxSteps,
-                            stepGoal: stepGoal
-                        )
+            ZStack(alignment: .top) {
+                VStack(spacing: Spacing.md) {
+                    // Bars
+                    HStack(alignment: .bottom, spacing: Spacing.sm) {
+                        ForEach(weeklyActivities) { activity in
+                            BarColumnView(
+                                activity: activity,
+                                maxSteps: maxSteps,
+                                stepGoal: stepGoal,
+                                isSelected: selectedActivity?.id == activity.id
+                            )
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if selectedActivity?.id == activity.id {
+                                        selectedActivity = nil
+                                    } else {
+                                        selectedActivity = activity
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(height: 100)
+
+                    // Day Labels (separate row below bars with more spacing)
+                    HStack(spacing: Spacing.sm) {
+                        ForEach(weeklyActivities) { activity in
+                            DayLabel(activity: activity)
+                        }
                     }
                 }
-                .frame(height: 100)
 
-                // Day Labels (separate row below bars with more spacing)
-                HStack(spacing: Spacing.sm) {
-                    ForEach(weeklyActivities) { activity in
-                        DayLabel(activity: activity)
+                // Popover
+                if let selected = selectedActivity {
+                    VStack {
+                        DayDetailPopover(activity: selected, stepGoal: stepGoal)
+                            .transition(.scale.combined(with: .opacity))
+                            .zIndex(1)
+                        Spacer()
                     }
+                    .padding(.top, -10)
                 }
             }
         }
@@ -73,6 +98,15 @@ struct WeeklyActivityChart: View {
         .background(Color.cardBackground)
         .cornerRadius(CornerRadius.lg)
         .pathwiseCardShadow()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Tap outside bars to dismiss
+            if selectedActivity != nil {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedActivity = nil
+                }
+            }
+        }
     }
 
     private var windowsClaimedCount: Int {
@@ -85,6 +119,7 @@ struct BarColumnView: View {
     let activity: DailyActivity
     let maxSteps: Int
     let stepGoal: Int
+    var isSelected: Bool = false
 
     private var barHeight: CGFloat {
         guard maxSteps > 0 else { return 0 }
@@ -133,6 +168,13 @@ struct BarColumnView: View {
                                     isToday ? Color.accent : Color.clear,
                                     lineWidth: 2
                                 )
+                        )
+                        .scaleEffect(isSelected ? 1.05 : 1.0)
+                        .shadow(
+                            color: isSelected ? Color.accent.opacity(0.4) : Color.clear,
+                            radius: isSelected ? 6 : 0,
+                            x: 0,
+                            y: 0
                         )
 
                     // Checkmark icon for met/exceeded goals
